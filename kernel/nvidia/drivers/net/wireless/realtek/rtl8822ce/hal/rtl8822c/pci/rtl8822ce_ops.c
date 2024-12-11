@@ -1,7 +1,6 @@
 /******************************************************************************
  *
  * Copyright(c) 2015 - 2017 Realtek Corporation.
- * Copyright (c) 2021, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -57,6 +56,7 @@ void rtl8822ce_reset_bd(_adapter *padapter)
 	struct xmit_buf	*pxmitbuf = NULL;
 	u8 *tx_bd, *rx_bd;
 	int i, rx_queue_idx;
+	dma_addr_t mapping;
 
 	InitMAC_TRXBD_8822CE(padapter);
 
@@ -71,7 +71,6 @@ void rtl8822ce_reset_bd(_adapter *padapter)
 		}
 	}
 
-	_rtw_spinlock_init(&pdvobjpriv->irq_th_lock);
 	_enter_critical(&pdvobjpriv->irq_th_lock, &irqL);
 	for (i = 0; i < PCI_MAX_TX_QUEUE_COUNT; i++) {
 		if (t_priv->tx_ring[i].buf_desc) {
@@ -87,9 +86,15 @@ void rtl8822ce_reset_bd(_adapter *padapter)
 
 				pxmitbuf = rtl8822ce_dequeue_xmitbuf(ring);
 				if (pxmitbuf) {
-					pci_unmap_single(pdvobjpriv->ppcidev,
-						GET_TX_BD_PHYSICAL_ADDR0_LOW(tx_bd),
-						pxmitbuf->len, PCI_DMA_TODEVICE);
+				#ifndef CONFIG_PCIE_DMA_COHERENT
+					mapping = GET_TX_BD_PHYSICAL_ADDR0_LOW(tx_bd);
+				#ifdef CONFIG_64BIT_DMA
+					mapping |= (dma_addr_t)GET_TX_BD_PHYSICAL_ADDR0_HIGH(tx_bd) << 32;
+				#endif
+					dma_unmap_single(&pdvobjpriv->ppcidev->dev,
+						mapping,
+						pxmitbuf->len, DMA_TO_DEVICE);
+				#endif
 					rtw_free_xmitbuf(t_priv, pxmitbuf);
 				} else {
 					RTW_INFO("%s(): qlen(%d) is not zero, but have xmitbuf in pending queue\n",
@@ -520,10 +525,10 @@ static void rtl8822ce_unmap_beacon_icf(PADAPTER Adapter)
 	}
 //	RTW_INFO("FREE pxmitbuf: %p, buf_desc: %p, sz: %d\n", pxmitbuf, tx_bufdesc, pxmitbuf->len);
 
-	pci_unmap_single(pdvobjpriv->ppcidev,
+	dma_unmap_single(&pdvobjpriv->ppcidev->dev,
 			 GET_TX_BD_PHYSICAL_ADDR0_LOW(tx_bufdesc),
 			 pxmitbuf->len,
-			 PCI_DMA_TODEVICE);
+			 DMA_TO_DEVICE);
 }
 
 u32 rtl8822ce_init_bd(_adapter *padapter)
@@ -715,6 +720,21 @@ static u8 sethwreg(PADAPTER padapter, u8 variable, u8 *val)
 		break;
 	}
 #endif
+	case HW_VAR_SET_DRV_ERLY_INT:
+		switch (*val) {
+		#ifdef CONFIG_TDLS
+		#ifdef CONFIG_TDLS_CH_SW
+			case TDLS_BCN_ERLY_ON:
+				padapter->tdlsinfo.chsw_info.bcn_early_reg_bkp = rtw_read8(padapter, REG_DRVERLYINT);
+				rtw_write8(padapter, REG_DRVERLYINT, 20);
+				break;
+			case TDLS_BCN_ERLY_OFF:
+				rtw_write8(padapter, REG_DRVERLYINT, padapter->tdlsinfo.chsw_info.bcn_early_reg_bkp);
+				break;
+		#endif
+		#endif
+		}
+		break;
 	default:
 		ret = rtl8822c_sethwreg(padapter, variable, val);
 		break;
@@ -884,6 +904,9 @@ void rtl8822ce_set_hal_ops(PADAPTER padapter)
 
 	ops->hal_xmit = rtl8822ce_hal_xmit;
 	ops->mgnt_xmit = rtl8822ce_mgnt_xmit;
+#ifdef CONFIG_RTW_MGMT_QUEUE
+	ops->hal_mgmt_xmitframe_enqueue = rtl8822ce_hal_mgmt_xmitframe_enqueue;
+#endif
 	ops->hal_xmitframe_enqueue = rtl8822ce_hal_xmitframe_enqueue;
 #ifdef CONFIG_HOSTAPD_MLME
 	ops->hostap_mgnt_xmit_entry = rtl8822ce_hostap_mgnt_xmit_entry;
@@ -902,4 +925,6 @@ void rtl8822ce_set_hal_ops(PADAPTER padapter)
 	ops->tx_poll_handler = rtl8822ce_tx_poll_handler;
 #endif
 	ops->unmap_beacon_icf = rtl8822ce_unmap_beacon_icf;
+
+	ops->hci_flush = rtl8822ce_hci_flush;
 }

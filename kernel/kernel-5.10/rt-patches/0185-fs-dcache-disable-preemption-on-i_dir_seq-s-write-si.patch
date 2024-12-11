@@ -1,7 +1,7 @@
-From e7e64bc356eb88fab98c549de683e38ee862aa87 Mon Sep 17 00:00:00 2001
+From be9f8a83c7976e6c4bb44a37e2a8de0643f22fd7 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 20 Oct 2017 11:29:53 +0200
-Subject: [PATCH 185/322] fs/dcache: disable preemption on i_dir_seq's write
+Subject: [PATCH 185/323] fs/dcache: disable preemption on i_dir_seq's write
  side
 X-NVConfidentiality: public
 
@@ -24,10 +24,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  3 files changed, 9 insertions(+), 7 deletions(-)
 
 diff --git a/fs/dcache.c b/fs/dcache.c
-index 1f4255ef8722..26a187abf13a 100644
+index 4bcd832ace5dc..380c528e6e98c 100644
 --- a/fs/dcache.c
 +++ b/fs/dcache.c
-@@ -2503,9 +2503,10 @@ EXPORT_SYMBOL(d_rehash);
+@@ -2504,9 +2504,10 @@ EXPORT_SYMBOL(d_rehash);
  static inline unsigned start_dir_add(struct inode *dir)
  {
  
@@ -40,7 +40,7 @@ index 1f4255ef8722..26a187abf13a 100644
  			return n;
  		cpu_relax();
  	}
-@@ -2513,7 +2514,8 @@ static inline unsigned start_dir_add(struct inode *dir)
+@@ -2514,7 +2515,8 @@ static inline unsigned start_dir_add(struct inode *dir)
  
  static inline void end_dir_add(struct inode *dir, unsigned n)
  {
@@ -50,7 +50,7 @@ index 1f4255ef8722..26a187abf13a 100644
  }
  
  static void d_wait_lookup(struct dentry *dentry)
-@@ -2549,7 +2551,7 @@ struct dentry *d_alloc_parallel(struct dentry *parent,
+@@ -2550,7 +2552,7 @@ struct dentry *d_alloc_parallel(struct dentry *parent,
  
  retry:
  	rcu_read_lock();
@@ -59,7 +59,7 @@ index 1f4255ef8722..26a187abf13a 100644
  	r_seq = read_seqbegin(&rename_lock);
  	dentry = __d_lookup_rcu(parent, name, &d_seq);
  	if (unlikely(dentry)) {
-@@ -2577,7 +2579,7 @@ struct dentry *d_alloc_parallel(struct dentry *parent,
+@@ -2578,7 +2580,7 @@ struct dentry *d_alloc_parallel(struct dentry *parent,
  	}
  
  	hlist_bl_lock(b);
@@ -69,7 +69,7 @@ index 1f4255ef8722..26a187abf13a 100644
  		rcu_read_unlock();
  		goto retry;
 diff --git a/fs/inode.c b/fs/inode.c
-index 311237e8d359..4e7822e006b3 100644
+index 5c7139aa2bda7..4ee8239c055f1 100644
 --- a/fs/inode.c
 +++ b/fs/inode.c
 @@ -158,7 +158,7 @@ int inode_init_always(struct super_block *sb, struct inode *inode)
@@ -82,10 +82,10 @@ index 311237e8d359..4e7822e006b3 100644
  	inode->dirtied_when = 0;
  
 diff --git a/include/linux/fs.h b/include/linux/fs.h
-index f9e25d0a7b9c..9522ac6c1a34 100644
+index 6de70634e5471..16e5e3096a504 100644
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
-@@ -699,7 +699,7 @@ struct inode {
+@@ -701,7 +701,7 @@ struct inode {
  		struct block_device	*i_bdev;
  		struct cdev		*i_cdev;
  		char			*i_link;

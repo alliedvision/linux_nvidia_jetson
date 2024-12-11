@@ -109,6 +109,16 @@ void configure_txpower_track(
 		configure_txpower_track_8814b(config);
 #endif
 
+#if RTL8723F_SUPPORT
+	if (dm->support_ic_type == ODM_RTL8723F)
+		configure_txpower_track_8723f(config);
+#endif
+
+#if RTL8814C_SUPPORT
+	if (dm->support_ic_type == ODM_RTL8814C)
+		configure_txpower_track_8814c(config);
+#endif
+
 
 }
 
@@ -230,8 +240,11 @@ odm_txpowertracking_callback_thermal_meter(
 	<Kordan> rf_calibrate_info.rega24 will be initialized when ODM HW configuring, but MP configures with para files. */
 #if (DM_ODM_SUPPORT_TYPE & ODM_WIN)
 #if (MP_DRIVER == 1)
+#ifndef RTL8723F_SUPPORT
 	cali_info->rega24 = 0x090e1317;
 #endif
+#endif
+
 #elif (DM_ODM_SUPPORT_TYPE & ODM_CE)
 	if (*(dm->mp_mode) == true)
 		cali_info->rega24 = 0x090e1317;
@@ -700,7 +713,7 @@ odm_txpowertracking_callback_thermal_meter(
 #if !(DM_ODM_SUPPORT_TYPE & ODM_AP)
 
 	/* Wait sacn to do IQK by RF Jenyu*/
-	if ((*dm->is_scan_in_process == false) && (!iqk_info->rfk_forbidden) && (dm->is_linked || *dm->mp_mode)) {
+	if ((*dm->is_scan_in_process == false) && (!iqk_info->rfk_forbidden) && dm->is_linked) {
 		if (!IS_HARDWARE_TYPE_8723B(adapter)) {
 			/*Delta temperature is equal to or larger than 20 centigrade (When threshold is 8).*/
 			if (delta_IQK >= c.threshold_iqk) {
@@ -753,7 +766,7 @@ odm_txpowertracking_callback_thermal_meter(
 	cali_info->tx_powercount = 0;
 }
 
-#if (RTL8822C_SUPPORT == 1 || RTL8814B_SUPPORT == 1)
+#if (RTL8822C_SUPPORT == 1 || RTL8814B_SUPPORT == 1 || RTL8723F_SUPPORT == 1 || RTL8814C_SUPPORT == 1)
 void
 odm_txpowertracking_new_callback_thermal_meter(void *dm_void)
 {
@@ -765,7 +778,7 @@ odm_txpowertracking_new_callback_thermal_meter(void *dm_void)
 	u8 thermal_value[MAX_RF_PATH] = {0}, delta[MAX_RF_PATH] = {0};
 	u8 delta_swing_table_idx_tup[DELTA_SWINGIDX_SIZE] = {0};
 	u8 delta_swing_table_idx_tdown[DELTA_SWINGIDX_SIZE] = {0};
-	u8 delta_LCK = 0, delta_IQK = 0, delta_tssi = 0, i = 0, j = 0, p;
+	u8 delta_LCK = 0, delta_IQK = 0, i = 0, j = 0, p;
 	u8 thermal_value_avg_count[MAX_RF_PATH] = {0};
 	u32 thermal_value_avg[MAX_RF_PATH] = {0};
 	s8 thermal_value_temp[MAX_RF_PATH] = {0};
@@ -787,7 +800,7 @@ odm_txpowertracking_new_callback_thermal_meter(void *dm_void)
 	(*c.get_delta_swing_table)(dm, (u8 **)&delta_swing_table_idx_tup_a, (u8 **)&delta_swing_table_idx_tdown_a,
 		(u8 **)&delta_swing_table_idx_tup_b, (u8 **)&delta_swing_table_idx_tdown_b);
 
-	if (dm->support_ic_type == ODM_RTL8814B) {
+	if (dm->support_ic_type & (ODM_RTL8814B | ODM_RTL8814C)) {
 		(*c.get_delta_swing_table)(dm, (u8 **)&delta_swing_table_idx_tup_c, (u8 **)&delta_swing_table_idx_tdown_c,
 			(u8 **)&delta_swing_table_idx_tup_d, (u8 **)&delta_swing_table_idx_tdown_d);
 	}
@@ -810,7 +823,7 @@ odm_txpowertracking_new_callback_thermal_meter(void *dm_void)
 		for (i = 0; i < c.rf_path_count; i++) {
 			thermal_value[i] = (u8)odm_get_rf_reg(dm, i, c.thermal_reg_addr, 0xfc00);	/* 0x42: RF Reg[15:10] 88E */
 
-			if (dm->support_ic_type == ODM_RTL8814B) {
+			if (dm->support_ic_type & (ODM_RTL8814B | ODM_RTL8814C)) {
 				thermal_value_temp[i] = (s8)thermal_value[i] + phydm_get_multi_thermal_offset(dm, i);
 				RF_DBG(dm, DBG_RF_TX_PWR_TRACK,
 					"thermal_value_temp[%d](%d) = thermal_value[%d](%d) + multi_thermal_trim(%d)\n", i, thermal_value_temp[i], i, thermal_value[i], phydm_get_multi_thermal_offset(dm, i));
@@ -864,17 +877,6 @@ odm_txpowertracking_new_callback_thermal_meter(void *dm_void)
 		delta_IQK = (thermal_value[0] > cali_info->thermal_value_iqk) ? (thermal_value[0] - cali_info->thermal_value_iqk) : (cali_info->thermal_value_iqk - thermal_value[0]);
 	}
 
-	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] thermal_value[0]=%d tssi->tssi_thermal[0]=%d\n",
-		thermal_value[0], tssi->tssi_thermal[0]);
-
-	delta_tssi = (thermal_value[0] > tssi->tssi_thermal[0]) ? (thermal_value[0] - tssi->tssi_thermal[0]) : (tssi->tssi_thermal[0] - thermal_value[0]);
-	if (delta_tssi >= 8) {
-		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] delta_tssi >= 8 !!!!!!  thermal_value[0]=%d tssi->tssi_thermal[0]=%d\n",
-			thermal_value[0], tssi->tssi_thermal[0]);
-		tssi->tssi_thermal[0] = thermal_value[0];
-		tssi->retry_sacan_tssi = 1;
-	}
-
 	/*4 6. If necessary, do LCK.*/
 
 	for (i = 0; i < c.rf_path_count; i++)
@@ -888,7 +890,9 @@ odm_txpowertracking_new_callback_thermal_meter(void *dm_void)
 			cali_info->thermal_value_lck = thermal_value[RF_PATH_A];
 
 			/*Use RTLCK, so close power tracking driver LCK*/
-			if ((!(dm->support_ic_type & ODM_RTL8814A)) && (!(dm->support_ic_type & ODM_RTL8822B))) {
+			if ((!(dm->support_ic_type & ODM_RTL8814A)) &&
+			    (!(dm->support_ic_type & ODM_RTL8822B)) &&
+			    (!(dm->support_ic_type & ODM_RTL8723F))) {
 				if (c.phy_lc_calibrate)
 					(*c.phy_lc_calibrate)(dm);
 			} else
@@ -972,7 +976,7 @@ odm_txpowertracking_new_callback_thermal_meter(void *dm_void)
 		}	
 	}
 
-	if (dm->support_ic_type == ODM_RTL8822C || dm->support_ic_type == ODM_RTL8814B)
+	if (dm->support_ic_type & (ODM_RTL8822C | ODM_RTL8814B | ODM_RTL8814C))
 		for (p = RF_PATH_A; p < c.rf_path_count; p++)
 			(*c.odm_tx_pwr_track_set_pwr)(dm, tracking_method, p, 0);
 
@@ -1043,26 +1047,39 @@ odm_iq_calibrate(
 	if (*dm->is_fcs_mode_enable)
 		return;
 #endif
+	if (dm->is_linked) {
+		RF_DBG(dm, DBG_RF_IQK,
+		       "interval=%d ch=%d prech=%d scan=%s rfk_f =%s\n",
+		       dm->linked_interval, *dm->channel,  dm->pre_channel,
+		       *dm->is_scan_in_process == TRUE ? "TRUE":"FALSE",
+		       iqk_info->rfk_forbidden == TRUE ? "TRUE":"FALSE");
 
-	if ((dm->is_linked) && (!iqk_info->rfk_forbidden)) {
-		RF_DBG(dm, DBG_RF_IQK, "interval=%d ch=%d prech=%d scan=%s\n", dm->linked_interval,
-		       *dm->channel,  dm->pre_channel, *dm->is_scan_in_process == TRUE ? "TRUE":"FALSE");
+		if (iqk_info->rfk_forbidden)	{
+			RF_DBG(dm, DBG_RF_IQK, "return by rfk_forbidden\n");
+			return;
+		}
+
+		if (*dm->is_scan_in_process)	{
+			RF_DBG(dm, DBG_RF_IQK, "return by is_scan_in_process\n");
+			return;
+		}
 
 		if (*dm->channel != dm->pre_channel) {
 			dm->pre_channel = *dm->channel;
 			dm->linked_interval = 0;
 		}
 
-		if ((dm->linked_interval < 3) && (!*dm->is_scan_in_process))
+		if (dm->linked_interval < 3)
 			dm->linked_interval++;
 
 		if (dm->linked_interval == 2)
 			PHY_IQCalibrate(adapter, false);
-	} else
+	} else {
 		dm->linked_interval = 0;
-
-		RF_DBG(dm, DBG_RF_IQK, "<=%s interval=%d ch=%d prech=%d scan=%s\n", __FUNCTION__, dm->linked_interval,
-			*dm->channel,  dm->pre_channel, *dm->is_scan_in_process == TRUE?"TRUE":"FALSE");
+		RF_DBG(dm, DBG_RF_IQK, "is_linked =%s, interval =%d\n",
+		       dm->is_linked == TRUE ? "TRUE":"FALSE",
+		       dm->linked_interval);		
+	}
 }
 
 void phydm_rf_init(struct dm_struct		*dm)

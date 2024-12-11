@@ -1,7 +1,7 @@
-From 72acf89215932901965d40a7073d72cf531c3b47 Mon Sep 17 00:00:00 2001
+From 9213e826a1ed32f0483f3865ee46324a940c1fa3 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 24 Nov 2021 17:12:20 +0100
-Subject: [PATCH 308/322] irq_work: Handle some irq_work in a per-CPU thread on
+Subject: [PATCH 308/323] irq_work: Handle some irq_work in a per-CPU thread on
  PREEMPT_RT
 X-NVConfidentiality: public
 
@@ -58,7 +58,7 @@ Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
  3 files changed, 106 insertions(+), 43 deletions(-)
 
 diff --git a/include/linux/irq_work.h b/include/linux/irq_work.h
-index 3c6d3a96bca0..f551ba9c99d4 100644
+index 3c6d3a96bca0f..f551ba9c99d40 100644
 --- a/include/linux/irq_work.h
 +++ b/include/linux/irq_work.h
 @@ -40,6 +40,16 @@ void init_irq_work(struct irq_work *work, void (*func)(struct irq_work *))
@@ -90,7 +90,7 @@ index 3c6d3a96bca0..f551ba9c99d4 100644
 -
  #endif /* _LINUX_IRQ_WORK_H */
 diff --git a/kernel/irq_work.c b/kernel/irq_work.c
-index 8969aff790e2..03d09d779ee1 100644
+index 8969aff790e21..03d09d779ee12 100644
 --- a/kernel/irq_work.c
 +++ b/kernel/irq_work.c
 @@ -18,12 +18,37 @@
@@ -290,10 +290,10 @@ index 8969aff790e2..03d09d779ee1 100644
 +}
 +early_initcall(irq_work_init_threads);
 diff --git a/kernel/time/timer.c b/kernel/time/timer.c
-index 1cad0efd635c..a4fdc7cfb723 100644
+index 4ff559fed1e49..68246a8c31bc2 100644
 --- a/kernel/time/timer.c
 +++ b/kernel/time/timer.c
-@@ -1770,8 +1770,6 @@ static __latent_entropy void run_timer_softirq(struct softirq_action *h)
+@@ -1800,8 +1800,6 @@ static __latent_entropy void run_timer_softirq(struct softirq_action *h)
  {
  	struct timer_base *base = this_cpu_ptr(&timer_bases[BASE_STD]);
  

@@ -21,7 +21,11 @@
 #define NUM_STA MACID_NUM_SW_LIMIT
 
 #ifndef CONFIG_RTW_MACADDR_ACL
+	#ifdef CONFIG_AP_MODE
 	#define CONFIG_RTW_MACADDR_ACL 1
+	#else
+	#define CONFIG_RTW_MACADDR_ACL 0
+	#endif
 #endif
 
 #ifndef CONFIG_RTW_PRE_LINK_STA
@@ -157,7 +161,9 @@ struct	stainfo_stats	{
 	u32 rxratecnt[128];	/* Read & Clear, in proc_get_rx_stat() */
 	u32 tx_ok_cnt;		/* Read & Clear, in proc_get_tx_stat() */
 	u32 tx_fail_cnt;	/* Read & Clear, in proc_get_tx_stat() */
+	u32 tx_fail_cnt_sum;	/* cumulative counts */
 	u32 tx_retry_cnt;	/* Read & Clear, in proc_get_tx_stat() */
+	u32 tx_retry_cnt_sum;	/* cumulative counts */
 #ifdef CONFIG_RTW_MESH
 	u32 rx_hwmp_pkts;
 	u32 last_rx_hwmp_pkts;
@@ -278,6 +284,10 @@ struct sta_info {
 #endif
 	_queue sleep_q;
 	unsigned int sleepq_len;
+#ifdef CONFIG_RTW_MGMT_QUEUE
+	_queue mgmt_sleep_q;
+	unsigned int mgmt_sleepq_len;
+#endif
 
 	uint state;
 	uint qos_option;
@@ -385,6 +395,10 @@ struct sta_info {
 
 	unsigned int expire_to;
 
+	int flags;
+
+	u8 bpairwise_key_installed;
+
 #ifdef CONFIG_AP_MODE
 
 	_list asoc_list;
@@ -395,7 +409,6 @@ struct sta_info {
 	unsigned char chg_txt[128];
 
 	u16 capability;
-	int flags;
 
 	int dot8021xalg;/* 0:disable, 1:psk, 2:802.1x */
 	int wpa_psk;/* 0:disable, bit(0): WPA, bit(1):WPA2 */
@@ -405,11 +418,6 @@ struct sta_info {
 	int wpa2_pairwise_cipher;
 
 	u32 akm_suite_type;
-
-	u8 bpairwise_key_installed;
-#ifdef CONFIG_RTW_80211R
-	u8 ft_pairwise_key_installed;
-#endif
 
 #ifdef CONFIG_NATIVEAP_MLME
 	u8 wpa_ie[32];
@@ -459,9 +467,9 @@ struct sta_info {
 	u8 op_wfd_mode;
 #endif
 
-#ifdef CONFIG_TX_MCAST2UNI
+#if !defined(CONFIG_ACTIVE_KEEP_ALIVE_CHECK) && defined(CONFIG_80211N_HT)
 	u8 under_exist_checking;
-#endif /* CONFIG_TX_MCAST2UNI */
+#endif
 
 	u8 keep_alive_trycnt;
 
@@ -510,6 +518,10 @@ struct sta_info {
 #ifdef CONFIG_RTW_TOKEN_BASED_XMIT
 	u8 tbtx_enable;			/* Does this sta_info support & enable TBTX function? */
 //	u8 tbtx_timeslot;		/* This sta_info belong to which time slot.	*/
+#endif
+
+#ifdef CONFIG_RTW_80211R
+	u8 ft_pairwise_key_installed;
 #endif
 
 	/*
@@ -712,9 +724,12 @@ struct	sta_priv {
 #ifdef CONFIG_ATMEL_RC_PATCH
 	u8 atmel_rc_pattern[6];
 #endif
+
+	/* tx report, single request allowed for now */
 	u8 c2h_sta_mac[ETH_ALEN];
 	u8 c2h_adapter_id;
 	struct submit_ctx *gotc2h;
+	_lock tx_rpt_lock;
 };
 
 

@@ -26,8 +26,8 @@
 #ifndef __ODM_RTL8822C_H__
 #define __ODM_RTL8822C_H__
 
-/* 2019.05.02: replace bfee cap with ndp cnt*/
-#define HW_SETTING_VERSION_8822C "1.0"
+/* 2019.08.20: modify code structure*/
+#define HW_SETTING_VERSION_8822C "1.1"
 
 enum phydm_bf_linked {
 	PHYDM_IS_BF_LINKED	= 1,

@@ -566,6 +566,13 @@ enum halmac_chip_ver {
 	HALMAC_CHIP_VER_D_CUT = 0x03,
 	HALMAC_CHIP_VER_E_CUT = 0x04,
 	HALMAC_CHIP_VER_F_CUT = 0x05,
+	HALMAC_CHIP_VER_G_CUT = 0x06,
+	HALMAC_CHIP_VER_H_CUT = 0x07,
+	HALMAC_CHIP_VER_I_CUT = 0x08,
+	HALMAC_CHIP_VER_J_CUT = 0x09,
+	HALMAC_CHIP_VER_K_CUT = 0x0A,
+	HALMAC_CHIP_VER_L_CUT = 0x0B,
+	HALMAC_CHIP_VER_M_CUT = 0x0C,
 	HALMAC_CHIP_VER_TEST = 0xFF,
 	HALMAC_CHIP_VER_UNDEFINE = 0x7FFF,
 };
@@ -1298,6 +1305,9 @@ enum halmac_drv_rsvd_pg_num {
 	HALMAC_RSVD_PG_NUM64,   /* 8K */
 	HALMAC_RSVD_PG_NUM128,  /* 16K */
 	HALMAC_RSVD_PG_NUM256,  /* 32K */
+	HALMAC_RSVD_PG_NUM512,  /* 64K */
+	HALMAC_RSVD_PG_NUM1024,  /* 128K */
+	HALMAC_RSVD_PG_NUM1460,  /* 182K */
 };
 
 enum halmac_pcie_cfg {
@@ -1497,6 +1507,7 @@ struct halmac_ver {
 	u8 major_ver;
 	u8 prototype_ver;
 	u8 minor_ver;
+	u8 patch_ver;
 };
 
 enum halmac_api_id {
@@ -2173,6 +2184,7 @@ struct halmac_adapter {
 	u8 pcie_refautok_en;
 	u8 pwr_off_flow_flag;
 	u8 nlo_flag;
+	enum halmac_bw curr_bw;
 	struct halmac_rx_ignore_info rx_ignore_info;
 	struct halmac_watcher watcher;
 #if HALMAC_PLATFORM_TESTPROGRAM

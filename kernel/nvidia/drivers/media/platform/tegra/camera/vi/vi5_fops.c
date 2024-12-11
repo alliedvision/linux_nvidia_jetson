@@ -1,7 +1,8 @@
-/*
- * Tegra Video Input 5 device common APIs
+// SPDX-License-Identifier: GPL-2.0-only
+/* SPDX-FileCopyrightText: Copyright (c) 2016- 2024 NVIDIA CORPORATION & AFFILIATES.
+ * All rights reserved.
  *
- * Copyright (c) 2016-2023, NVIDIA CORPORATION. All rights reserved.
+ * Tegra Video Input 5 device common APIs
  *
  * Author: Frank Chen <frank@nvidia.com>
  *
@@ -138,6 +139,9 @@ static int tegra_vi5_s_ctrl(struct v4l2_ctrl *ctrl)
 	case TEGRA_CAMERA_CID_WRITE_ISPFORMAT:
 		chan->write_ispformat = ctrl->val;
 		break;
+	case TEGRA_CAMERA_CID_VI_CAPTURE_TIMEOUT:
+		chan->capture_timeout_ms = ctrl->val;
+		break;
 	default:
 		dev_err(&chan->video->dev, "%s:Not valid ctrl\n", __func__);
 		return -EINVAL;
@@ -203,6 +207,16 @@ static const struct v4l2_ctrl_config vi5_custom_ctrls[] = {
 		.def = 0,
 		.step = 1,
 		.dims = { SENSOR_CTRL_BLOB_SIZE },
+	},
+	{
+		.ops = &vi5_ctrl_ops,
+		.id = TEGRA_CAMERA_CID_VI_CAPTURE_TIMEOUT,
+		.name = "Override capture timeout ms",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.def = CAPTURE_TIMEOUT_MS,
+		.min = -1,
+		.max = 0x7FFFFFFF,
+		.step = 1,
 	},
 };
 
@@ -505,7 +519,7 @@ static void vi5_capture_dequeue(struct tegra_channel *chan,
 	unsigned long flags;
 	struct tegra_mc_vi *vi = chan->vi;
 	struct vb2_v4l2_buffer *vb = &buf->buf;
-
+	int timeout_ms = CAPTURE_TIMEOUT_MS;
 #if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
 	struct timespec ts;
 #else
@@ -521,12 +535,21 @@ static void vi5_capture_dequeue(struct tegra_channel *chan,
 			goto rel_buf;
 
 		/* Dequeue a frame and check its capture status */
-		err = vi_capture_status(chan->tegra_vi_channel[vi_port], jiffies_to_msecs(chan->timeout));
+		timeout_ms = chan->capture_timeout_ms;
+		err = vi_capture_status(chan->tegra_vi_channel[vi_port], timeout_ms);
 		if (err) {
 			if (err == -ETIMEDOUT) {
-				dev_err(vi->dev,
-					"uncorr_err: request timed out after %d ms\n",
-					jiffies_to_msecs(chan->timeout));
+				if (timeout_ms < 0) {
+					spin_lock_irqsave(&chan->capture_state_lock, flags);
+					chan->capture_state = CAPTURE_ERROR_TIMEOUT;
+					spin_unlock_irqrestore(&chan->capture_state_lock, flags);
+					buf->vb2_state = VB2_BUF_STATE_ERROR;
+					goto rel_buf;
+				} else {
+					dev_err(vi->dev,
+						"uncorr_err: request timed out after %d ms\n",
+						timeout_ms);
+				}
 			} else {
 				dev_err(vi->dev, "uncorr_err: request err %d\n", err);
 			}
@@ -686,6 +709,7 @@ static int tegra_channel_kthread_capture_enqueue(void *data)
 	struct tegra_channel_buffer *buf;
 	unsigned long flags;
 	set_freezable();
+	allow_signal(SIGINT);
 
 	while (1) {
 		try_to_freeze();
@@ -749,6 +773,12 @@ static int tegra_channel_kthread_capture_dequeue(void *data)
 		}
 
 		spin_lock_irqsave(&chan->capture_state_lock, flags);
+		if (chan->capture_state == CAPTURE_ERROR_TIMEOUT) {
+			spin_unlock_irqrestore(&chan->capture_state_lock,
+				flags);
+			break;
+		}
+
 		if (chan->capture_state == CAPTURE_ERROR) {
 			spin_unlock_irqrestore(&chan->capture_state_lock,
 				flags);
@@ -818,6 +848,7 @@ static void vi5_channel_stop_kthreads(struct tegra_channel *chan)
 
 	/* Stop the kthread for capture dequeue */
 	if (chan->kthread_capture_dequeue) {
+		send_sig(SIGINT, chan->kthread_capture_dequeue, 1);
 		kthread_stop(chan->kthread_capture_dequeue);
 		chan->kthread_capture_dequeue = NULL;
 	}

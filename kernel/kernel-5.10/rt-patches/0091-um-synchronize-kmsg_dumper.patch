@@ -1,7 +1,7 @@
-From 06a6e1ee6a49ca6ac7affbd4fabcdf7dd0b25852 Mon Sep 17 00:00:00 2001
+From c1590b150191d83e521ec282704cc0addf6cba7b Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 21 Dec 2020 11:10:03 +0106
-Subject: [PATCH 091/322] um: synchronize kmsg_dumper
+Subject: [PATCH 091/323] um: synchronize kmsg_dumper
 X-NVConfidentiality: public
 
 The kmsg_dumper can be called from any context and CPU, possibly
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 8 insertions(+)
 
 diff --git a/arch/um/kernel/kmsg_dump.c b/arch/um/kernel/kmsg_dump.c
-index f38349ad00ea..173999422ed8 100644
+index f38349ad00ead..173999422ed84 100644
 --- a/arch/um/kernel/kmsg_dump.c
 +++ b/arch/um/kernel/kmsg_dump.c
 @@ -1,5 +1,6 @@

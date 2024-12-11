@@ -1,7 +1,7 @@
-From 22e3c1216623034acd5a39a8c5982130dd640750 Mon Sep 17 00:00:00 2001
+From 0d3a84ab5952517911c8b7849ebbbf0d79f7c03f Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:24 +0100
-Subject: [PATCH 035/322] microblaze/mm/highmem: Switch to generic kmap atomic
+Subject: [PATCH 035/323] microblaze/mm/highmem: Switch to generic kmap atomic
 X-NVConfidentiality: public
 
 No reason having the same code in every architecture.
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  delete mode 100644 arch/microblaze/mm/highmem.c
 
 diff --git a/arch/microblaze/Kconfig b/arch/microblaze/Kconfig
-index 33925ffed68f..7f6ca0ab4f81 100644
+index 33925ffed68fd..7f6ca0ab4f81f 100644
 --- a/arch/microblaze/Kconfig
 +++ b/arch/microblaze/Kconfig
 @@ -155,6 +155,7 @@ config XILINX_UNCACHED_SHADOW
@@ -32,7 +32,7 @@ index 33925ffed68f..7f6ca0ab4f81 100644
  	  The address space of Microblaze processors is only 4 Gigabytes large
  	  and it has to accommodate user address space, kernel address
 diff --git a/arch/microblaze/include/asm/fixmap.h b/arch/microblaze/include/asm/fixmap.h
-index 0379ce5229e3..e6e9288bff76 100644
+index 0379ce5229e3a..e6e9288bff761 100644
 --- a/arch/microblaze/include/asm/fixmap.h
 +++ b/arch/microblaze/include/asm/fixmap.h
 @@ -20,7 +20,7 @@
@@ -54,7 +54,7 @@ index 0379ce5229e3..e6e9288bff76 100644
  	__end_of_fixed_addresses
  };
 diff --git a/arch/microblaze/include/asm/highmem.h b/arch/microblaze/include/asm/highmem.h
-index 284ca8fb54c1..4418633fb163 100644
+index 284ca8fb54c1d..4418633fb1632 100644
 --- a/arch/microblaze/include/asm/highmem.h
 +++ b/arch/microblaze/include/asm/highmem.h
 @@ -25,7 +25,6 @@
@@ -78,7 +78,7 @@ index 284ca8fb54c1..4418633fb163 100644
  
  #endif /* _ASM_HIGHMEM_H */
 diff --git a/arch/microblaze/mm/Makefile b/arch/microblaze/mm/Makefile
-index 1b16875cea70..8ced71100047 100644
+index 1b16875cea704..8ced711000471 100644
 --- a/arch/microblaze/mm/Makefile
 +++ b/arch/microblaze/mm/Makefile
 @@ -6,4 +6,3 @@
@@ -88,7 +88,7 @@ index 1b16875cea70..8ced71100047 100644
 -obj-$(CONFIG_HIGHMEM) += highmem.o
 diff --git a/arch/microblaze/mm/highmem.c b/arch/microblaze/mm/highmem.c
 deleted file mode 100644
-index 92e0890416c9..000000000000
+index 92e0890416c91..0000000000000
 --- a/arch/microblaze/mm/highmem.c
 +++ /dev/null
 @@ -1,78 +0,0 @@
@@ -171,7 +171,7 @@ index 92e0890416c9..000000000000
 -}
 -EXPORT_SYMBOL(kunmap_atomic_high);
 diff --git a/arch/microblaze/mm/init.c b/arch/microblaze/mm/init.c
-index 45da639bd22c..1f4b5b34e600 100644
+index 45da639bd22ca..1f4b5b34e6004 100644
 --- a/arch/microblaze/mm/init.c
 +++ b/arch/microblaze/mm/init.c
 @@ -49,17 +49,11 @@ unsigned long lowmem_size;

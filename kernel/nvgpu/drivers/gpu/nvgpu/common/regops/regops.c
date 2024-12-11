@@ -207,7 +207,7 @@ int exec_regops_gk20a(struct gk20a *g,
 					    ctx_wr_count, ctx_rd_count,
 					    flags);
 		if (err != 0) {
-			nvgpu_warn(g, "failed to perform ctx ops\n");
+			nvgpu_warn(g, "failed to perform ctx ops");
 			goto clean_up;
 		}
 	}

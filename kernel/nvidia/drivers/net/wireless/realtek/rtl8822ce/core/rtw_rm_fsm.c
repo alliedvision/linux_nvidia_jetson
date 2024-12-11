@@ -72,7 +72,7 @@ int rtw_init_rm(_adapter *padapter)
 		| BIT(RM_BCN_PASSIVE_MEAS_CAP_EN)
 		| BIT(RM_BCN_ACTIVE_MEAS_CAP_EN)
 		| BIT(RM_BCN_TABLE_MEAS_CAP_EN)
-		/*| BIT(RM_BCN_MEAS_REP_COND_CAP_EN)*/;
+		| BIT(RM_BCN_MEAS_REP_COND_CAP_EN);
 
 	/* bit  8-15 */
 	prmpriv->rm_en_cap_def[1] = 0
@@ -122,6 +122,7 @@ int rtw_init_rm(_adapter *padapter)
 		padapter, rm_timer_callback, padapter);
 	_set_timer(&prmpriv->rm_timer, CLOCK_UNIT);
 
+	prmpriv->meas_token = 1;
 	return _SUCCESS;
 }
 
@@ -570,6 +571,24 @@ static int rm_state_idle(struct rm_obj *prm, enum RM_EV_ID evid)
 			break;
 		} /* switch() */
 
+		if (prm->q.rand_intvl) {
+			/* get low tsf to generate random interval */
+			val32 = rtw_read32(padapter, REG_TSFTR);
+			val32 = val32 % prm->q.rand_intvl;
+			RTW_INFO("RM: rmid=%x rand_intval=%d, rand=%d\n",
+				prm->rmid, (int)prm->q.rand_intvl,val32);
+			rm_set_clock(prm, prm->q.rand_intvl,
+				RM_EV_delay_timer_expire);
+			return _SUCCESS;
+
+		} else if (prm->q.delay_start) {
+			RTW_INFO("RM: rmid=%x delay_start=%d\n",
+				prm->rmid, (int)prm->q.delay_start);
+			rm_set_clock(prm, prm->q.delay_start,
+				RM_EV_delay_timer_expire);
+			return _SUCCESS;
+		}
+
 		if (prm->rmid & RM_MASTER) {
 			if (rm_issue_meas_req(prm) == _SUCCESS)
 				rm_state_goto(prm, RM_ST_WAIT_MEAS);
@@ -586,19 +605,19 @@ static int rm_state_idle(struct rm_obj *prm, enum RM_EV_ID evid)
 			rm_state_goto(prm, RM_ST_END);
 			return _SUCCESS;
 		}
-		if (prm->q.rand_intvl) {
-			/* get low tsf to generate random interval */
-			val32 = rtw_read32(padapter, REG_TSFTR);
-			val32 = val32 % prm->q.rand_intvl;
-			RTW_INFO("RM: rmid=%x rand_intval=%d, rand=%d\n",
-				prm->rmid, (int)prm->q.rand_intvl,val32);
-			rm_set_clock(prm, prm->q.rand_intvl,
-				RM_EV_delay_timer_expire);
-			return _SUCCESS;
-		}
+
 		break;
 	case RM_EV_delay_timer_expire:
-		rm_state_goto(prm, RM_ST_DO_MEAS);
+		if (prm->rmid & RM_MASTER) {
+			if (rm_issue_meas_req(prm) == _SUCCESS)
+				rm_state_goto(prm, RM_ST_WAIT_MEAS);
+			else
+				rm_state_goto(prm, RM_ST_END);
+			return _SUCCESS;
+		} else {
+			rm_state_goto(prm, RM_ST_DO_MEAS);
+			return _SUCCESS;
+		}
 		break;
 	case RM_EV_cancel:
 		rm_state_goto(prm, RM_ST_END);
@@ -668,8 +687,9 @@ static int rm_state_do_meas(struct rm_obj *prm, enum RM_EV_ID evid)
 			switch (prm->q.m_type) {
 			case bcn_req:
 				val8 = 1; /* Enable free run counter */
-				rtw_hal_set_hwreg(padapter,
-					HW_VAR_FREECNT, &val8);
+				prm->free_run_counter_valid = rtw_hal_set_hwreg(
+					padapter, HW_VAR_FREECNT, &val8);
+
 				rm_sitesurvey(prm);
 				break;
 			case ch_load_req:
@@ -769,13 +789,32 @@ static int rm_state_wait_meas(struct rm_obj *prm, enum RM_EV_ID evid)
 	switch (evid) {
 	case RM_EV_state_in:
 		/* we create meas_req, waiting for peer report */
-		rm_set_clock(prm, RM_REQ_TIMEOUT,
-			RM_EV_request_timer_expire);
+		if (prm->q.action_code == RM_ACT_NB_REP_REQ)
+			rm_set_clock(prm, RM_REQ_RETRY_TIMEOUT,
+				RM_EV_request_timer_expire);
+		else
+			rm_set_clock(prm, RM_REQ_TIMEOUT,
+				RM_EV_request_timer_expire);
 		break;
 	case RM_EV_recv_rep:
 		rm_state_goto(prm, RM_ST_RECV_REPORT);
 		break;
 	case RM_EV_request_timer_expire:
+
+		if (prm->q.retry) {
+			RTW_INFO("RM: rmid=%x retry=%u\n", prm->rmid, prm->q.retry--);
+			rm_issue_meas_req(prm);
+			if (prm->q.action_code == RM_ACT_NB_REP_REQ)
+				rm_set_clock(prm, RM_REQ_RETRY_TIMEOUT,
+					RM_EV_request_timer_expire);
+			else
+				rm_set_clock(prm, RM_REQ_TIMEOUT,
+					RM_EV_request_timer_expire);
+			break;
+		}
+		rm_state_goto(prm, RM_ST_END);
+
+		break;
 	case RM_EV_cancel:
 		rm_state_goto(prm, RM_ST_END);
 		break;
@@ -871,9 +910,9 @@ static int rm_state_recv_report(struct rm_obj *prm, enum RM_EV_ID evid)
 			if (val8) {
 				RTW_INFO("RM: rmid=%x peer reject (%s repeat=%d)\n",
 					prm->rmid,
-					val8|MEAS_REP_MOD_INCAP?"INCAP":
-					val8|MEAS_REP_MOD_REFUSE?"REFUSE":
-					val8|MEAS_REP_MOD_LATE?"LATE":"",
+					val8&MEAS_REP_MOD_INCAP?"INCAP":
+					val8&MEAS_REP_MOD_REFUSE?"REFUSE":
+					val8&MEAS_REP_MOD_LATE?"LATE":"",
 					prm->p.rpt);
 				rm_state_goto(prm, RM_ST_END);
 				return _SUCCESS;

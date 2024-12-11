@@ -25,18 +25,9 @@
 #define DRIVER_EARLY_INT_TIME_8822C	0x05
 #define BCN_DMA_ATIME_INT_TIME_8822C	0x02
 
-#ifdef CONFIG_SUPPORT_DYNAMIC_TXPWR
-#define SET_H2CCMD_FW_CRC5_SEARCH_EN(cmd, v)	\
-	SET_BITS_TO_LE_1BYTE((cmd), 0, 1, (v));
-#define SET_H2CCMD_FW_CRC5_SEARCH_MACID(cmd, v)	\
-	SET_BITS_TO_LE_1BYTE((cmd), 1, 7, (v));
-#define SET_H2CCMD_FW_CRC5_SEARCH_MAC(cmd, mac)	\
-	do {		\
-		int __offset = 0;	\
-		for (__offset = 0; __offset < ETH_ALEN; __offset++)	\
-			SET_BITS_TO_LE_1BYTE((u8 *)(cmd + __offset), 0, 8, *((u8 *)(mac + __offset)));	\
-	} while(0)
-#endif
+#define C2H_GET_CMD_ID_1BYTE(c2h_pkt) LE_BITS_TO_1BYTE(c2h_pkt + 0X00, 0, 8)
+
+#define C2H_GET_SEQ_1BYTE(c2h_pkt) LE_BITS_TO_1BYTE(c2h_pkt + 0X01, 0, 8)
 
 /* rtl8822c_ops.c */
 struct hw_port_reg {
@@ -107,13 +98,9 @@ void rtl8822c_query_rx_desc(union recv_frame *, u8 *pdesc);
 
 /* rtl8822c_cmd.c */
 s32 rtl8822c_fillh2ccmd(PADAPTER, u8 id, u32 buf_len, u8 *pbuf);
-void rtl8822c_set_FwPwrMode_cmd(PADAPTER, u8 psmode);
-
-#ifdef CONFIG_TDLS
-#ifdef CONFIG_TDLS_CH_SW
-void rtl8822c_set_BcnEarly_C2H_Rpt_cmd(PADAPTER padapter, u8 enable);
-#endif
-#endif
+void _rtl8822c_set_FwPwrMode_cmd(PADAPTER adapter, u8 psmode, u8 rfon_ctrl);
+void rtl8822c_set_FwPwrMode_cmd(PADAPTER adapter, u8 psmode);
+void rtl8822c_set_FwPwrMode_rfon_ctrl_cmd(PADAPTER adapter, u8 rfon_ctrl);
 
 void rtl8822c_set_FwPwrModeInIPS_cmd(PADAPTER adapter, u8 cmd_param);
 void rtl8822c_req_txrpt_cmd(PADAPTER, u8 macid);
@@ -121,7 +108,6 @@ void rtl8822c_c2h_handler(PADAPTER, u8 *pbuf, u16 length);
 #ifdef CONFIG_WOWLAN
 void rtl8822c_set_fw_pwrmode_inips_cmd_wowlan(PADAPTER padapter, u8 ps_mode);
 #endif
-
 void rtl8822c_set_usb_suspend_mode(PADAPTER padapter);
 
 void rtl8822c_c2h_handler_no_io(PADAPTER, u8 *pbuf, u16 length);
@@ -156,9 +142,5 @@ void rtl8822c_phy_bf_leave(PADAPTER, u8 *addr);
 void rtl8822c_phy_bf_set_gid_table(PADAPTER, struct beamformer_entry*);
 void rtl8822c_phy_bf_sounding_status(PADAPTER, u8 status);
 #endif /* CONFIG_BEAMFORMING */
-
-#ifdef CONFIG_SUPPORT_DYNAMIC_TXPWR
-void rtl8822c_dtp_macid_set(_adapter *padapter, u8 opmode, u8 mac_id, u8 *paddr);
-#endif
 
 #endif /* _RTL8822C_H_ */

@@ -1,7 +1,7 @@
-From 92236f8cf1c08c997a92567e1cdd44946ab3268a Mon Sep 17 00:00:00 2001
+From 008e6707b2f7fc11db68a4cbf717cbe8ca69e9a7 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:10 +0100
-Subject: [PATCH 116/322] irqstat: Get rid of nmi_count() and __IRQ_STAT()
+Subject: [PATCH 116/323] irqstat: Get rid of nmi_count() and __IRQ_STAT()
 X-NVConfidentiality: public
 
 Nothing uses this anymore.
@@ -15,7 +15,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 4 deletions(-)
 
 diff --git a/include/linux/irq_cpustat.h b/include/linux/irq_cpustat.h
-index 6e8895cd4d92..78fb2de3ea4d 100644
+index 6e8895cd4d926..78fb2de3ea4d7 100644
 --- a/include/linux/irq_cpustat.h
 +++ b/include/linux/irq_cpustat.h
 @@ -19,10 +19,6 @@

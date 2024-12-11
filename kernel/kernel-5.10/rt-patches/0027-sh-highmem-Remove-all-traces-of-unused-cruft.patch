@@ -1,7 +1,7 @@
-From 0dd802fc7b25e7ac37227f93d4da4db1a8bc6cb2 Mon Sep 17 00:00:00 2001
+From c6c0c8157ad935e4c3db7f7f0b686661efcf3313 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:16 +0100
-Subject: [PATCH 027/322] sh/highmem: Remove all traces of unused cruft
+Subject: [PATCH 027/323] sh/highmem: Remove all traces of unused cruft
 X-NVConfidentiality: public
 
 For whatever reasons SH has highmem bits all over the place but does
@@ -17,7 +17,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  delete mode 100644 arch/sh/include/asm/kmap_types.h
 
 diff --git a/arch/sh/include/asm/fixmap.h b/arch/sh/include/asm/fixmap.h
-index f38adc189b83..b07fbc7f7bc6 100644
+index f38adc189b832..b07fbc7f7bc6a 100644
 --- a/arch/sh/include/asm/fixmap.h
 +++ b/arch/sh/include/asm/fixmap.h
 @@ -13,9 +13,6 @@
@@ -44,7 +44,7 @@ index f38adc189b83..b07fbc7f7bc6 100644
  	 * FIX_IOREMAP entries are useful for mapping physical address
 diff --git a/arch/sh/include/asm/kmap_types.h b/arch/sh/include/asm/kmap_types.h
 deleted file mode 100644
-index b78107f923dd..000000000000
+index b78107f923dd3..0000000000000
 --- a/arch/sh/include/asm/kmap_types.h
 +++ /dev/null
 @@ -1,15 +0,0 @@
@@ -64,7 +64,7 @@ index b78107f923dd..000000000000
 -
 -#endif
 diff --git a/arch/sh/mm/init.c b/arch/sh/mm/init.c
-index 3348e0c4d769..0db6919af8d3 100644
+index 3348e0c4d7698..0db6919af8d32 100644
 --- a/arch/sh/mm/init.c
 +++ b/arch/sh/mm/init.c
 @@ -362,9 +362,6 @@ void __init mem_init(void)

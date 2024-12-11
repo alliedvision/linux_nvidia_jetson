@@ -1,7 +1,7 @@
-From b312d35426c91876d401264aa9f63d76f4b43f8a Mon Sep 17 00:00:00 2001
+From 3beeb3636d9ba465dc7a354eae18c92e1f9ba783 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:14 +0100
-Subject: [PATCH 025/322] highmem: Remove unused functions
+Subject: [PATCH 025/323] highmem: Remove unused functions
 X-NVConfidentiality: public
 
 Nothing uses totalhigh_pages_dec() and totalhigh_pages_set().
@@ -13,7 +13,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 10 deletions(-)
 
 diff --git a/include/linux/highmem.h b/include/linux/highmem.h
-index b25df1f8d48d..3297bfca78ed 100644
+index b25df1f8d48d3..3297bfca78edd 100644
 --- a/include/linux/highmem.h
 +++ b/include/linux/highmem.h
 @@ -104,21 +104,11 @@ static inline void totalhigh_pages_inc(void)

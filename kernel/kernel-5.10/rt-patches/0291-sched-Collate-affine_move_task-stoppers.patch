@@ -1,7 +1,7 @@
-From bc012fc2528f362be922825b7bdbf43bc47fcc19 Mon Sep 17 00:00:00 2001
+From 08d9b3e029ca900b088dd3b3e69dd5e24e39d3d1 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Tue, 8 Jun 2021 00:37:32 -0400
-Subject: [PATCH 291/322] sched: Collate affine_move_task() stoppers
+Subject: [PATCH 291/323] sched: Collate affine_move_task() stoppers
 X-NVConfidentiality: public
 
 commit 58b1a45086b5f80f2b2842aa7ed0da51a64a302b upstream.
@@ -22,7 +22,7 @@ Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
  1 file changed, 8 insertions(+), 15 deletions(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index f8d3ae82ea95..09357ee9d0a6 100644
+index 3248ac8fc803c..3c055279a88ad 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -2291,30 +2291,23 @@ static int affine_move_task(struct rq *rq, struct task_struct *p, struct rq_flag

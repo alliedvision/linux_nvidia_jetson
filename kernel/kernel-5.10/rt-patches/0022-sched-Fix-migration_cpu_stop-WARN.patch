@@ -1,7 +1,7 @@
-From 7f1a709f2646479c036b7398e81a625ed6bf9dff Mon Sep 17 00:00:00 2001
+From c7de4f623ad37d39774ec7e71d1cf4cc0f58dfb7 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Tue, 17 Nov 2020 12:14:51 +0100
-Subject: [PATCH 022/322] sched: Fix migration_cpu_stop() WARN
+Subject: [PATCH 022/323] sched: Fix migration_cpu_stop() WARN
 X-NVConfidentiality: public
 
 Oleksandr reported hitting the WARN in the 'task_rq(p) != rq' branch
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 16db3f6d2af0..cc3198fdc37a 100644
+index 674f515b09bf2..26eeedaa3712f 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1929,7 +1929,7 @@ static int migration_cpu_stop(void *data)

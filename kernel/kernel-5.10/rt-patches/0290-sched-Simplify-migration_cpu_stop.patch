@@ -1,7 +1,7 @@
-From 999b89bae17182a0bcabb6a13e9551ee2c04656d Mon Sep 17 00:00:00 2001
+From 3557cd1f52cf49941ce805edfb8efcaff6e8d88b Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Tue, 8 Jun 2021 00:37:31 -0400
-Subject: [PATCH 290/322] sched: Simplify migration_cpu_stop()
+Subject: [PATCH 290/323] sched: Simplify migration_cpu_stop()
 X-NVConfidentiality: public
 
 commit c20cf065d4a619d394d23290093b1002e27dff86 upstream.
@@ -28,7 +28,7 @@ Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
  1 file changed, 8 insertions(+), 48 deletions(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index cb82ce8532f1..f8d3ae82ea95 100644
+index f53d89b946679..3248ac8fc803c 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1950,8 +1950,8 @@ static struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,

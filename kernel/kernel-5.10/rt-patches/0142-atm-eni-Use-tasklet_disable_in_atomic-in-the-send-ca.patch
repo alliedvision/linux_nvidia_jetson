@@ -1,7 +1,7 @@
-From cfc3b2bac2d9a8f32fd0d8ed6e111d6c8860eb05 Mon Sep 17 00:00:00 2001
+From 9c9ab225edba8916c568ac66850f0ff4ed5fb64c Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 9 Mar 2021 09:42:14 +0100
-Subject: [PATCH 142/322] atm: eni: Use tasklet_disable_in_atomic() in the
+Subject: [PATCH 142/323] atm: eni: Use tasklet_disable_in_atomic() in the
  send() callback
 X-NVConfidentiality: public
 
@@ -25,7 +25,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
-index 9fcc49be499f..a31ffe16e626 100644
+index 9fcc49be499f1..a31ffe16e626f 100644
 --- a/drivers/atm/eni.c
 +++ b/drivers/atm/eni.c
 @@ -2056,7 +2056,7 @@ static int eni_send(struct atm_vcc *vcc,struct sk_buff *skb)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -301,6 +301,8 @@
 
 		vi0_thi: vi0-thi@15f00000 {
 			compatible = "nvidia,tegra234-vi-thi";
+			iommus = <&smmu_iso TEGRA_SID_ISO_VI>;
+			non-coherent;
 			status = "okay";
 		};
 
@@ -317,6 +319,8 @@
 
 		vi1_thi: vi1-thi@14f00000 {
 			compatible = "nvidia,tegra234-vi-thi";
+			iommus = <&smmu_iso TEGRA_SID_ISO_VI2>;
+			non-coherent;
 			status = "okay";
 		};
 
@@ -338,6 +342,8 @@
 
 		isp_thi: isp-thi@14b00000 {
 			compatible = "nvidia,tegra194-isp-thi";
+			iommus = <&smmu_niso1 TEGRA_SID_NISO1_ISP>;
+			non-coherent;
 			status = "okay";
 		};
 

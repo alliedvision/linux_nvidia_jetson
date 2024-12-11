@@ -1,7 +1,7 @@
-From 224434917191e64290c7fcd168e7cb97cc12ae01 Mon Sep 17 00:00:00 2001
+From c16756e5fdcba5f95845eca6bf4c588376164c87 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:12 +0100
-Subject: [PATCH 118/322] ARM: irqstat: Get rid of duplicated declaration
+Subject: [PATCH 118/323] ARM: irqstat: Get rid of duplicated declaration
 X-NVConfidentiality: public
 
 irq_cpustat_t is exactly the same as the asm-generic one. Define
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 5 insertions(+), 8 deletions(-)
 
 diff --git a/arch/arm/include/asm/hardirq.h b/arch/arm/include/asm/hardirq.h
-index b95848ed2bc7..706efafbf972 100644
+index b95848ed2bc7f..706efafbf9722 100644
 --- a/arch/arm/include/asm/hardirq.h
 +++ b/arch/arm/include/asm/hardirq.h
 @@ -2,16 +2,11 @@
@@ -42,7 +42,7 @@ index b95848ed2bc7..706efafbf972 100644
  
  #endif /* __ASM_HARDIRQ_H */
 diff --git a/arch/arm/include/asm/irq.h b/arch/arm/include/asm/irq.h
-index 46d41140df27..1cbcc462b07e 100644
+index 46d41140df27d..1cbcc462b07e8 100644
 --- a/arch/arm/include/asm/irq.h
 +++ b/arch/arm/include/asm/irq.h
 @@ -31,6 +31,8 @@ void handle_IRQ(unsigned int, struct pt_regs *);

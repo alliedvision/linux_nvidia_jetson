@@ -42,8 +42,8 @@
 #define DPK_PATH_A_8822C 1
 #define DPK_PATH_B_8822C 1
 #define DPK_THRESHOLD_8822C 6
-#define DPK_INFO_RSVD_LEN_8822C 169
-#define DPK_C2H_REPORT_LEN_8822C 10
+#define DPK_INFO_RSVD_LEN_8822C 179
+#define DPK_C2H_REPORT_LEN_8822C 19
 
 /*---------------------------End Define Parameters----------------------------*/
 
@@ -80,7 +80,7 @@ void dpk_info_rsvd_page_8822c(
 void dpk_c2h_report_transfer_8822c(
 	void	*dm_void,
 	boolean	is_ok,
-	u8 	*buf,
+	u8	*buf,
 	u8	buf_size);
 
 #endif /* RTL8822C_SUPPORT */

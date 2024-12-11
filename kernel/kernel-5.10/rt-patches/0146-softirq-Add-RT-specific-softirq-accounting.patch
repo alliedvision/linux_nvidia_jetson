@@ -1,7 +1,7 @@
-From 6be3b745a4df0bc27351c9b5f86235e2031dad68 Mon Sep 17 00:00:00 2001
+From f70d3cc896a41c8a296f90cfd1d2b10842a00b24 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 9 Mar 2021 09:55:53 +0100
-Subject: [PATCH 146/322] softirq: Add RT specific softirq accounting
+Subject: [PATCH 146/323] softirq: Add RT specific softirq accounting
 X-NVConfidentiality: public
 
 RT requires the softirq processing and local bottomhalf disabled regions to
@@ -28,7 +28,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  3 files changed, 9 insertions(+), 1 deletion(-)
 
 diff --git a/include/linux/hardirq.h b/include/linux/hardirq.h
-index 0926e9ca4d85..76878b357ffa 100644
+index 0926e9ca4d85f..76878b357ffa9 100644
 --- a/include/linux/hardirq.h
 +++ b/include/linux/hardirq.h
 @@ -6,6 +6,7 @@
@@ -40,7 +40,7 @@ index 0926e9ca4d85..76878b357ffa 100644
  #include <asm/hardirq.h>
  
 diff --git a/include/linux/preempt.h b/include/linux/preempt.h
-index 69cc8b64aa3a..9881eac0698f 100644
+index 69cc8b64aa3a0..9881eac0698fd 100644
 --- a/include/linux/preempt.h
 +++ b/include/linux/preempt.h
 @@ -79,7 +79,11 @@
@@ -57,7 +57,7 @@ index 69cc8b64aa3a..9881eac0698f 100644
  
  /*
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 08b5804c29ec..2ab01dab5346 100644
+index 82de1ab424976..d31da4867bb28 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -1046,6 +1046,9 @@ struct task_struct {

@@ -1,7 +1,7 @@
-From 3a821484f5d6a69886c82f170b57b4e0c9e629a5 Mon Sep 17 00:00:00 2001
+From e1b0ef9c8e7a4f726af793ab5d0acabf204d12b3 Mon Sep 17 00:00:00 2001
 From: Wang Yong <wang.yong12@zte.com.cn>
 Date: Tue, 12 Sep 2023 15:14:28 +0800
-Subject: [PATCH 321/322] arm64: signal: Use ARCH_RT_DELAYS_SIGNAL_SEND
+Subject: [PATCH 321/323] arm64: signal: Use ARCH_RT_DELAYS_SIGNAL_SEND
 X-NVConfidentiality: public
 
 The ltp test prompts the following bug information under the 5.10 kernel:
@@ -48,7 +48,7 @@ Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
 
 diff --git a/arch/arm64/include/asm/signal.h b/arch/arm64/include/asm/signal.h
 new file mode 100644
-index 000000000000..0fb418cf4c17
+index 0000000000000..0fb418cf4c17a
 --- /dev/null
 +++ b/arch/arm64/include/asm/signal.h
 @@ -0,0 +1,12 @@
@@ -65,7 +65,7 @@ index 000000000000..0fb418cf4c17
 +
 +#endif
 diff --git a/arch/arm64/kernel/signal.c b/arch/arm64/kernel/signal.c
-index 94eed0dc3afc..5b08f55ec85d 100644
+index 94eed0dc3afcd..5b08f55ec85d9 100644
 --- a/arch/arm64/kernel/signal.c
 +++ b/arch/arm64/kernel/signal.c
 @@ -929,6 +929,15 @@ asmlinkage void do_notify_resume(struct pt_regs *regs,

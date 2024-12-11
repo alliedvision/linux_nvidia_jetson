@@ -1,7 +1,7 @@
-From 631fbd5d8e236e2290c0c73fd4d6ef6d54ed2d5d Mon Sep 17 00:00:00 2001
+From 88ba33559cc83a313c86ba290240dc454deb4c3a Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 23 Jun 2015 15:32:51 +0200
-Subject: [PATCH 239/322] irqwork: push most work into softirq context
+Subject: [PATCH 239/323] irqwork: push most work into softirq context
 X-NVConfidentiality: public
 
 Initially we defered all irqwork into softirq because we didn't want the
@@ -30,7 +30,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  4 files changed, 55 insertions(+), 12 deletions(-)
 
 diff --git a/include/linux/irq_work.h b/include/linux/irq_work.h
-index 30823780c192..f941f2d7d71c 100644
+index 30823780c1928..f941f2d7d71ce 100644
 --- a/include/linux/irq_work.h
 +++ b/include/linux/irq_work.h
 @@ -55,4 +55,10 @@ static inline void irq_work_run(void) { }
@@ -45,7 +45,7 @@ index 30823780c192..f941f2d7d71c 100644
 +
  #endif /* _LINUX_IRQ_WORK_H */
 diff --git a/kernel/irq_work.c b/kernel/irq_work.c
-index eca83965b631..8183d30e1bb1 100644
+index eca83965b631a..8183d30e1bb1c 100644
 --- a/kernel/irq_work.c
 +++ b/kernel/irq_work.c
 @@ -18,6 +18,7 @@
@@ -160,7 +160,7 @@ index eca83965b631..8183d30e1bb1 100644
  /*
   * Synchronize against the irq_work @entry, ensures the entry is not
 diff --git a/kernel/sched/topology.c b/kernel/sched/topology.c
-index ff2c6d3ba6c7..2f1bea4f7dba 100644
+index ff2c6d3ba6c79..2f1bea4f7dba2 100644
 --- a/kernel/sched/topology.c
 +++ b/kernel/sched/topology.c
 @@ -514,6 +514,7 @@ static int init_rootdomain(struct root_domain *rd)
@@ -172,10 +172,10 @@ index ff2c6d3ba6c7..2f1bea4f7dba 100644
  
  	init_dl_bw(&rd->dl_bw);
 diff --git a/kernel/time/timer.c b/kernel/time/timer.c
-index a4fdc7cfb723..1cad0efd635c 100644
+index 68246a8c31bc2..4ff559fed1e49 100644
 --- a/kernel/time/timer.c
 +++ b/kernel/time/timer.c
-@@ -1770,6 +1770,8 @@ static __latent_entropy void run_timer_softirq(struct softirq_action *h)
+@@ -1800,6 +1800,8 @@ static __latent_entropy void run_timer_softirq(struct softirq_action *h)
  {
  	struct timer_base *base = this_cpu_ptr(&timer_bases[BASE_STD]);
  

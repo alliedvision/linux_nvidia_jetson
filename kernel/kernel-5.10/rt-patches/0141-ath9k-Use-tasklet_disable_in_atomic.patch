@@ -1,7 +1,7 @@
-From 2b9c0e3ee1e104e5cfda2af0572fa26c94032670 Mon Sep 17 00:00:00 2001
+From 3c04015cc802b17dba065a0d26129d0f50c5b6bc Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 9 Mar 2021 09:42:13 +0100
-Subject: [PATCH 141/322] ath9k: Use tasklet_disable_in_atomic()
+Subject: [PATCH 141/323] ath9k: Use tasklet_disable_in_atomic()
 X-NVConfidentiality: public
 
 All callers of ath9k_beacon_ensure_primary_slot() are preemptible /
@@ -31,7 +31,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/wireless/ath/ath9k/beacon.c b/drivers/net/wireless/ath/ath9k/beacon.c
-index 71e2ada86793..72e2e71aac0e 100644
+index 71e2ada86793f..72e2e71aac0e6 100644
 --- a/drivers/net/wireless/ath/ath9k/beacon.c
 +++ b/drivers/net/wireless/ath/ath9k/beacon.c
 @@ -251,7 +251,7 @@ void ath9k_beacon_ensure_primary_slot(struct ath_softc *sc)

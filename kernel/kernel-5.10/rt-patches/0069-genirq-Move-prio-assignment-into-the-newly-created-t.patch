@@ -1,7 +1,7 @@
-From 979ec3fb4b02205763676dd34af37e42339f45e9 Mon Sep 17 00:00:00 2001
+From 369d142d22903eacad1d3cd1022e53ecf344c85d Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 9 Nov 2020 23:32:39 +0100
-Subject: [PATCH 069/322] genirq: Move prio assignment into the newly created
+Subject: [PATCH 069/323] genirq: Move prio assignment into the newly created
  thread
 X-NVConfidentiality: public
 
@@ -37,7 +37,7 @@ Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-index 0159925054fa..5ec167fb77b9 100644
+index 0159925054faa..5ec167fb77b91 100644
 --- a/kernel/irq/manage.c
 +++ b/kernel/irq/manage.c
 @@ -1201,6 +1201,8 @@ static int irq_thread(void *data)

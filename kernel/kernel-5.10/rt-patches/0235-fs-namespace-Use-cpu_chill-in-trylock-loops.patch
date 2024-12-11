@@ -1,7 +1,7 @@
-From e1e72f4d62eb9ddee70ad6ba9a1910523d80c929 Mon Sep 17 00:00:00 2001
+From dcc6786a4489f7e2e6ee3f41a7528429e152945a Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 7 Mar 2012 21:00:34 +0100
-Subject: [PATCH 235/322] fs: namespace: Use cpu_chill() in trylock loops
+Subject: [PATCH 235/323] fs: namespace: Use cpu_chill() in trylock loops
 X-NVConfidentiality: public
 
 Retry loops on RT might loop forever when the modifying side was
@@ -14,7 +14,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  1 file changed, 6 insertions(+), 2 deletions(-)
 
 diff --git a/fs/namespace.c b/fs/namespace.c
-index 046b084136c5..6a550e342d6b 100644
+index b020a12c53a2a..364ba37d62d33 100644
 --- a/fs/namespace.c
 +++ b/fs/namespace.c
 @@ -14,6 +14,7 @@

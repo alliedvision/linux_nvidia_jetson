@@ -1,7 +1,7 @@
-From e66d730c41c100f18ab7a9314ae08d38da1a8d7c Mon Sep 17 00:00:00 2001
+From c3f5b710a92e4eef8d99a967b3277d8c18bfc5f6 Mon Sep 17 00:00:00 2001
 From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Wed, 18 Feb 2015 16:05:28 +0100
-Subject: [PATCH 233/322] sunrpc: Make svc_xprt_do_enqueue() use
+Subject: [PATCH 233/323] sunrpc: Make svc_xprt_do_enqueue() use
  get_cpu_light()
 X-NVConfidentiality: public
 
@@ -34,7 +34,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
-index 06e503466c32..16bd1278a989 100644
+index 06e503466c32c..16bd1278a9890 100644
 --- a/net/sunrpc/svc_xprt.c
 +++ b/net/sunrpc/svc_xprt.c
 @@ -422,7 +422,7 @@ void svc_xprt_do_enqueue(struct svc_xprt *xprt)

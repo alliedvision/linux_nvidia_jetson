@@ -1,7 +1,7 @@
-From 2fa87ba3bc6197fef976ce60b91ce0f12155382e Mon Sep 17 00:00:00 2001
+From 176b8704924b384efea4898e9e4c3efabb7592ae Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 19 Nov 2019 09:25:04 +0100
-Subject: [PATCH 228/322] locking: Make spinlock_t and rwlock_t a RCU section
+Subject: [PATCH 228/323] locking: Make spinlock_t and rwlock_t a RCU section
  on RT
 X-NVConfidentiality: public
 
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 12 insertions(+)
 
 diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
-index 2fe178651254..31b374d36d04 100644
+index 2fe1786512543..31b374d36d04b 100644
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
 @@ -1136,6 +1136,7 @@ void __lockfunc rt_spin_lock(spinlock_t *lock)
@@ -70,7 +70,7 @@ index 2fe178651254..31b374d36d04 100644
  	} else {
  		local_bh_enable();
 diff --git a/kernel/locking/rwlock-rt.c b/kernel/locking/rwlock-rt.c
-index 16be7111aae7..3d2d1f14b513 100644
+index 16be7111aae71..3d2d1f14b5135 100644
 --- a/kernel/locking/rwlock-rt.c
 +++ b/kernel/locking/rwlock-rt.c
 @@ -270,6 +270,7 @@ int __lockfunc rt_read_trylock(rwlock_t *rwlock)

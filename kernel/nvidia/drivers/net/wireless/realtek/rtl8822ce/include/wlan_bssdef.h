@@ -240,8 +240,17 @@ typedef struct _WLAN_BSSID_EX {
 	NDIS_802_11_NETWORK_INFRASTRUCTURE  InfrastructureMode;
 	NDIS_802_11_RATES_EX  SupportedRates;
 	WLAN_PHY_INFO	PhyInfo;
+
+	u8 qbss_valid;
+	u8 qbss_ch_util;
+	u16 qbss_sta_cnt;
+
 	u32  IELength;
 	u8  IEs[MAX_IE_SZ];	/* (timestamp, beacon interval, and capability information) */
+
+#ifdef	CONFIG_LAYER2_ROAMING
+	u64 tsf;
+#endif
 }
 __attribute__((packed)) WLAN_BSSID_EX, *PWLAN_BSSID_EX;
 
@@ -321,7 +330,7 @@ enum UAPSD_MAX_SP {
 
 
 /* john */
-#define NUM_PRE_AUTH_KEY 16
+#define NUM_PRE_AUTH_KEY 64
 #define NUM_PMKID_CACHE NUM_PRE_AUTH_KEY
 
 #endif /* #ifndef WLAN_BSSDEF_H_ */

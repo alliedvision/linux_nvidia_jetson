@@ -1,7 +1,7 @@
-From 26960220063d38962b5f995eeb1408314e3e6e9f Mon Sep 17 00:00:00 2001
+From b35b96376d40158f4c386bfd895918452b533c2d Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:15 +0100
-Subject: [PATCH 026/322] fs: Remove asm/kmap_types.h includes
+Subject: [PATCH 026/323] fs: Remove asm/kmap_types.h includes
 X-NVConfidentiality: public
 
 Historical leftovers from the time where kmap() had fixed slots.
@@ -22,7 +22,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 2 deletions(-)
 
 diff --git a/fs/aio.c b/fs/aio.c
-index 5934ea84b499..c90e045a37bc 100644
+index 93b6bbf01d715..43315af1c83ac 100644
 --- a/fs/aio.c
 +++ b/fs/aio.c
 @@ -43,7 +43,6 @@
@@ -34,7 +34,7 @@ index 5934ea84b499..c90e045a37bc 100644
  #include <linux/nospec.h>
  
 diff --git a/fs/btrfs/ctree.h b/fs/btrfs/ctree.h
-index bcc6848bb6d6..fabbf6cc45bf 100644
+index 3ddb09f2b1685..ba39097c44a71 100644
 --- a/fs/btrfs/ctree.h
 +++ b/fs/btrfs/ctree.h
 @@ -17,7 +17,6 @@

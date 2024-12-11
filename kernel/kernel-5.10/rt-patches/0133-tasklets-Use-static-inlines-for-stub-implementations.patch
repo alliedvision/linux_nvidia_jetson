@@ -1,7 +1,7 @@
-From 6c0d109e06362dc9f223ff8b81ece34dc62e46b5 Mon Sep 17 00:00:00 2001
+From 36e5221731ef71bc30f468d1f3658bfff30ae171 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 9 Mar 2021 09:42:05 +0100
-Subject: [PATCH 133/322] tasklets: Use static inlines for stub implementations
+Subject: [PATCH 133/323] tasklets: Use static inlines for stub implementations
 X-NVConfidentiality: public
 
 Inlines exist for a reason.
@@ -14,7 +14,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index fad0eb9d42ab..75c4380afe9b 100644
+index fad0eb9d42aba..75c4380afe9b5 100644
 --- a/include/linux/interrupt.h
 +++ b/include/linux/interrupt.h
 @@ -676,9 +676,9 @@ static inline void tasklet_unlock_wait(struct tasklet_struct *t)

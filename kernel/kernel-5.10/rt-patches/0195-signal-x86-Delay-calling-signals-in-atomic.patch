@@ -1,7 +1,7 @@
-From 81d4b083521dd7cfa556ce4e35b743ca13ea0629 Mon Sep 17 00:00:00 2001
+From e3eb7c55bd55a19b84d19ab80b0c0c42cc162245 Mon Sep 17 00:00:00 2001
 From: Oleg Nesterov <oleg@redhat.com>
 Date: Tue, 14 Jul 2015 14:26:34 +0200
-Subject: [PATCH 195/322] signal/x86: Delay calling signals in atomic
+Subject: [PATCH 195/323] signal/x86: Delay calling signals in atomic
 X-NVConfidentiality: public
 
 On x86_64 we must disable preemption before we enable interrupts
@@ -39,7 +39,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  4 files changed, 53 insertions(+)
 
 diff --git a/arch/x86/include/asm/signal.h b/arch/x86/include/asm/signal.h
-index 6fd8410a3910..f3bf2f515edb 100644
+index 6fd8410a3910c..f3bf2f515edb3 100644
 --- a/arch/x86/include/asm/signal.h
 +++ b/arch/x86/include/asm/signal.h
 @@ -28,6 +28,19 @@ typedef struct {
@@ -63,7 +63,7 @@ index 6fd8410a3910..f3bf2f515edb 100644
  typedef sigset_t compat_sigset_t;
  #endif
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index acbb796710d0..3634b00c3662 100644
+index 3650fdaac4caa..d259126f46cf4 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -1001,6 +1001,10 @@ struct task_struct {
@@ -78,7 +78,7 @@ index acbb796710d0..3634b00c3662 100644
  	size_t				sas_ss_size;
  	unsigned int			sas_ss_flags;
 diff --git a/kernel/entry/common.c b/kernel/entry/common.c
-index e6a66de1202a..e6da86039ccf 100644
+index e6a66de1202af..e6da86039ccf5 100644
 --- a/kernel/entry/common.c
 +++ b/kernel/entry/common.c
 @@ -160,6 +160,14 @@ static unsigned long exit_to_user_mode_loop(struct pt_regs *regs,
@@ -97,7 +97,7 @@ index e6a66de1202a..e6da86039ccf 100644
  			uprobe_notify_resume(regs);
  
 diff --git a/kernel/signal.c b/kernel/signal.c
-index 5ab628e2afc5..e8819aabe3cd 100644
+index 5ab628e2afc5f..e8819aabe3cd5 100644
 --- a/kernel/signal.c
 +++ b/kernel/signal.c
 @@ -1314,6 +1314,34 @@ force_sig_info_to_task(struct kernel_siginfo *info, struct task_struct *t)

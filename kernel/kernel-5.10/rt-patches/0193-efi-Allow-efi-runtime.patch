@@ -1,7 +1,7 @@
-From fd1b685528c05e11e792355707ea5fe2e322a098 Mon Sep 17 00:00:00 2001
+From 8d9f64eceb64b1e92b76f0250645d841273d387e Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 26 Jul 2018 15:06:10 +0200
-Subject: [PATCH 193/322] efi: Allow efi=runtime
+Subject: [PATCH 193/323] efi: Allow efi=runtime
 X-NVConfidentiality: public
 
 In case the command line option "efi=noruntime" is default at built-time, the user
@@ -14,7 +14,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 3 insertions(+)
 
 diff --git a/drivers/firmware/efi/efi.c b/drivers/firmware/efi/efi.c
-index 8d390091203f..8589df0e8c1f 100644
+index 8d390091203fc..8589df0e8c1fc 100644
 --- a/drivers/firmware/efi/efi.c
 +++ b/drivers/firmware/efi/efi.c
 @@ -97,6 +97,9 @@ static int __init parse_efi_cmdline(char *str)

@@ -136,6 +136,7 @@ struct ionic_dev {
 	unsigned long last_hb_time;
 	u32 last_hb;
 	u8 last_fw_status;
+	u8 opcode;
 
 	u64 __iomem *db_pages;
 	dma_addr_t phy_db_pages;
@@ -191,7 +192,7 @@ struct ionic_desc_info {
 	void *cb_arg;
 };
 
-#define IONIC_QUEUE_NAME_MAX_SZ		32
+#define IONIC_QUEUE_NAME_MAX_SZ		16
 
 struct ionic_queue {
 	struct device *dev;

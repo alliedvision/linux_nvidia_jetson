@@ -1,7 +1,7 @@
-From 9fb5068be0262700ada02c6eae05d737221f9a4b Mon Sep 17 00:00:00 2001
+From 372a6621be1badc5457b87e33af89cb14af8f77e Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:13 +0100
-Subject: [PATCH 119/322] arm64: irqstat: Get rid of duplicated declaration
+Subject: [PATCH 119/323] arm64: irqstat: Get rid of duplicated declaration
 X-NVConfidentiality: public
 
 irq_cpustat_t is exactly the same as the asm-generic one. Define
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+), 5 deletions(-)
 
 diff --git a/arch/arm64/include/asm/hardirq.h b/arch/arm64/include/asm/hardirq.h
-index 5ffa4bacdad3..cbfa7b6f2e09 100644
+index 5ffa4bacdad38..cbfa7b6f2e098 100644
 --- a/arch/arm64/include/asm/hardirq.h
 +++ b/arch/arm64/include/asm/hardirq.h
 @@ -13,11 +13,8 @@

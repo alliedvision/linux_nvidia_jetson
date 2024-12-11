@@ -65,6 +65,29 @@ done:
 	return ch_amount;
 }
 
+u8 rm_get_ch_set_from_bcn_req_opt(
+	struct rtw_ieee80211_channel *pch_set, struct bcn_req_opt *opt)
+{
+	int i,j,k,sz;
+	struct _RT_OPERATING_CLASS *ap_ch_rpt;
+	u8 ch_amount = 0;
+
+	k = 0;
+	for (i = 0; i < opt->ap_ch_rpt_num; i++) {
+		if (opt->ap_ch_rpt[i] == NULL)
+			break;
+		ap_ch_rpt = opt->ap_ch_rpt[i];
+		for (j = 0; j < ap_ch_rpt->Len; j++) {
+			pch_set[k].hw_value =
+				ap_ch_rpt->Channel[j];
+			RTW_INFO("RM: meas_ch[%d].hw_value = %u\n",
+				j, pch_set[k].hw_value);
+			k++;
+		}
+	}
+	return k;
+}
+
 u8 rm_get_oper_class_via_ch(u8 ch)
 {
 	int i,j,sz;
@@ -123,48 +146,24 @@ u8 rm_get_bcn_rcpi(struct rm_obj *prm, struct wlan_network *pnetwork)
 
 u8 rm_get_frame_rsni(struct rm_obj *prm, union recv_frame *pframe)
 {
-	int i;
-	u8 val8, snr, rx_num;
-	struct hal_spec_t *hal_spec = GET_HAL_SPEC(prm->psta->padapter);
+	s8 pwr;
+	u8 ch;
 
-	if (IS_CCK_RATE((hw_rate_to_m_rate(pframe->u.hdr.attrib.data_rate))))
-		val8 = 255;
-	else {
-		snr = rx_num = 0;
-		for (i = 0; i < hal_spec->rf_reg_path_num; i++) {
-			if (GET_HAL_RX_PATH_BMP(prm->psta->padapter) & BIT(i)) {
-				snr += pframe->u.hdr.attrib.phy_info.rx_snr[i];
-				rx_num++;
-			}
-		}
-		snr = snr / rx_num;
-		val8 = (u8)(snr + 10)*2;
-	}
-	return val8;
+	pwr = pframe->u.hdr.attrib.phy_info.recv_signal_power;
+	ch = pframe->u.hdr.attrib.phy_info.channel;
+
+	return rtw_acs_get_rsni(prm->psta->padapter, pwr, ch);
 }
 
 u8 rm_get_bcn_rsni(struct rm_obj *prm, struct wlan_network *pnetwork)
 {
-	int i;
-	u8 val8, snr, rx_num;
-	struct hal_spec_t *hal_spec = GET_HAL_SPEC(prm->psta->padapter);
+	s8 pwr;
+	u8 ch;
 
-	if (pnetwork->network.PhyInfo.is_cck_rate) {
-		/* current HW doesn't have CCK RSNI */
-		/* 255 indicates RSNI is unavailable */
-		val8 = 255;
-	} else {
-		snr = rx_num = 0;
-		for (i = 0; i < hal_spec->rf_reg_path_num; i++) {
-			if (GET_HAL_RX_PATH_BMP(prm->psta->padapter) & BIT(i)) {
-				snr += pnetwork->network.PhyInfo.rx_snr[i];
-				rx_num++;
-			}
-		}
-		snr = snr / rx_num;
-		val8 = (u8)(snr + 10)*2;
-	}
-	return val8;
+	pwr = (u8)pnetwork->network.Rssi;
+	ch = pnetwork->network.Configuration.DSConfig;
+
+	return rtw_acs_get_rsni(prm->psta->padapter, pwr, ch);
 }
 
 /* output: pwr (unit dBm) */
@@ -387,6 +386,7 @@ int rm_get_path_a_max_tx_power(_adapter *adapter, s8 *path_a)
 	s8 max_pwr[RF_PATH_MAX], pwr;
 
 
+	_rtw_memset(max_pwr, -127, RF_PATH_MAX);
 	band = hal_data->current_band_type;
 	bw = hal_data->current_channel_bw;
 	ch = hal_data->current_channel;
@@ -428,6 +428,50 @@ int rm_get_path_a_max_tx_power(_adapter *adapter, s8 *path_a)
 	RTW_INFO("RM: path_a max_pwr=%ddBm\n", max_pwr[0]);
 #endif
 	*path_a = max_pwr[0];
+	return 0;
+}
+
+u8 rm_gen_dialog_token(_adapter *padapter)
+{
+	struct rm_priv *prmpriv = &(padapter->rmpriv);
+	struct mlme_ext_priv *pmlmeext = &padapter->mlmeextpriv;
+	struct mlme_ext_info *pmlmeinfo = &pmlmeext->mlmext_info;
+
+	do {
+		pmlmeinfo->dialogToken++;
+	} while (pmlmeinfo->dialogToken == 0);
+
+	return pmlmeinfo->dialogToken;
+}
+
+u8 rm_gen_meas_token(_adapter *padapter)
+{
+	struct rm_priv *prmpriv = &(padapter->rmpriv);
+
+	do {
+		prmpriv->meas_token++;
+	} while (prmpriv->meas_token == 0);
+
+	return prmpriv->meas_token;
+}
+
+u32 rm_gen_rmid(_adapter *padapter, struct rm_obj *prm, u8 role)
+{
+	u32 rmid;
+
+	if (prm->psta == NULL)
+		goto err;
+
+	if (prm->q.diag_token == 0)
+		goto err;
+
+	rmid = prm->psta->cmn.aid << 16
+		| prm->q.diag_token << 8
+		| role;
+
+	return rmid;
+err:
+	RTW_ERR("RM: unable to gen rmid\n");
 	return 0;
 }
 

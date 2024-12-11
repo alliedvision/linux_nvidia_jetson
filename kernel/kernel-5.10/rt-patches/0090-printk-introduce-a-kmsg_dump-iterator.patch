@@ -1,7 +1,7 @@
-From f3afada78b78c44b9616a045586080f01a517915 Mon Sep 17 00:00:00 2001
+From 1651188850b996d05de24eb7d8850bd72a4a4e40 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Fri, 18 Dec 2020 11:40:08 +0000
-Subject: [PATCH 090/322] printk: introduce a kmsg_dump iterator
+Subject: [PATCH 090/323] printk: introduce a kmsg_dump iterator
 X-NVConfidentiality: public
 
 Rather than store the iterator information into the registered
@@ -27,7 +27,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  10 files changed, 84 insertions(+), 75 deletions(-)
 
 diff --git a/arch/powerpc/kernel/nvram_64.c b/arch/powerpc/kernel/nvram_64.c
-index 532f22637783..1ef55f4b389a 100644
+index 532f226377831..1ef55f4b389a2 100644
 --- a/arch/powerpc/kernel/nvram_64.c
 +++ b/arch/powerpc/kernel/nvram_64.c
 @@ -73,7 +73,8 @@ static const char *nvram_os_partitions[] = {
@@ -68,7 +68,7 @@ index 532f22637783..1ef55f4b389a 100644
  		err_type = ERR_TYPE_KERNEL_PANIC;
  		oops_hdr->version = cpu_to_be16(OOPS_HDR_VERSION);
 diff --git a/arch/powerpc/platforms/powernv/opal-kmsg.c b/arch/powerpc/platforms/powernv/opal-kmsg.c
-index 6c3bc4b4da98..ec862846bc82 100644
+index 6c3bc4b4da983..ec862846bc82c 100644
 --- a/arch/powerpc/platforms/powernv/opal-kmsg.c
 +++ b/arch/powerpc/platforms/powernv/opal-kmsg.c
 @@ -20,7 +20,8 @@
@@ -82,10 +82,10 @@ index 6c3bc4b4da98..ec862846bc82 100644
  	/*
  	 * Outside of a panic context the pollers will continue to run,
 diff --git a/arch/powerpc/xmon/xmon.c b/arch/powerpc/xmon/xmon.c
-index 2872b66d9fec..9406b4c9cd17 100644
+index 3de2adc0a8074..9f62cca6c5948 100644
 --- a/arch/powerpc/xmon/xmon.c
 +++ b/arch/powerpc/xmon/xmon.c
-@@ -3002,7 +3002,7 @@ print_address(unsigned long addr)
+@@ -3003,7 +3003,7 @@ print_address(unsigned long addr)
  static void
  dump_log_buf(void)
  {
@@ -94,7 +94,7 @@ index 2872b66d9fec..9406b4c9cd17 100644
  	unsigned char buf[128];
  	size_t len;
  
-@@ -3014,9 +3014,9 @@ dump_log_buf(void)
+@@ -3015,9 +3015,9 @@ dump_log_buf(void)
  	catch_memory_errors = 1;
  	sync();
  
@@ -107,7 +107,7 @@ index 2872b66d9fec..9406b4c9cd17 100644
  		printf("%s", buf);
  	}
 diff --git a/arch/um/kernel/kmsg_dump.c b/arch/um/kernel/kmsg_dump.c
-index e4abac6c9727..f38349ad00ea 100644
+index e4abac6c9727c..f38349ad00ead 100644
 --- a/arch/um/kernel/kmsg_dump.c
 +++ b/arch/um/kernel/kmsg_dump.c
 @@ -6,7 +6,8 @@
@@ -130,7 +130,7 @@ index e4abac6c9727..f38349ad00ea 100644
  		printf("%s", line);
  	}
 diff --git a/drivers/hv/vmbus_drv.c b/drivers/hv/vmbus_drv.c
-index e99400f3ae1d..db39c96bbf43 100644
+index e99400f3ae1d1..db39c96bbf430 100644
 --- a/drivers/hv/vmbus_drv.c
 +++ b/drivers/hv/vmbus_drv.c
 @@ -1359,7 +1359,8 @@ static void vmbus_isr(void)
@@ -153,7 +153,7 @@ index e99400f3ae1d..db39c96bbf43 100644
  	if (bytes_written)
  		hyperv_report_panic_msg(panic_pa, bytes_written);
 diff --git a/drivers/mtd/mtdoops.c b/drivers/mtd/mtdoops.c
-index 774970bfcf85..6bc2c728adb7 100644
+index 774970bfcf859..6bc2c728adb73 100644
 --- a/drivers/mtd/mtdoops.c
 +++ b/drivers/mtd/mtdoops.c
 @@ -267,7 +267,8 @@ static void find_next_position(struct mtdoops_context *cxt)
@@ -176,7 +176,7 @@ index 774970bfcf85..6bc2c728adb7 100644
  
  	if (reason != KMSG_DUMP_OOPS) {
 diff --git a/fs/pstore/platform.c b/fs/pstore/platform.c
-index ce03c3dbb5c3..5c2c14d5f6fc 100644
+index d59f13b1fb96b..64f3f85d2a5d4 100644
 --- a/fs/pstore/platform.c
 +++ b/fs/pstore/platform.c
 @@ -384,7 +384,8 @@ void pstore_record_init(struct pstore_record *record,
@@ -199,7 +199,7 @@ index ce03c3dbb5c3..5c2c14d5f6fc 100644
  			break;
  
 diff --git a/include/linux/kmsg_dump.h b/include/linux/kmsg_dump.h
-index 4095a34db0fa..2fdb10ab1799 100644
+index 4095a34db0fa3..2fdb10ab17994 100644
 --- a/include/linux/kmsg_dump.h
 +++ b/include/linux/kmsg_dump.h
 @@ -29,6 +29,18 @@ enum kmsg_dump_reason {
@@ -303,10 +303,10 @@ index 4095a34db0fa..2fdb10ab1799 100644
  }
  
 diff --git a/kernel/debug/kdb/kdb_main.c b/kernel/debug/kdb/kdb_main.c
-index 4e09fab52faf..048baadd7a41 100644
+index c27b3dfa19210..aa424a1d65d01 100644
 --- a/kernel/debug/kdb/kdb_main.c
 +++ b/kernel/debug/kdb/kdb_main.c
-@@ -2157,7 +2157,7 @@ static int kdb_dmesg(int argc, const char **argv)
+@@ -2155,7 +2155,7 @@ static int kdb_dmesg(int argc, const char **argv)
  	int adjust = 0;
  	int n = 0;
  	int skip = 0;
@@ -315,7 +315,7 @@ index 4e09fab52faf..048baadd7a41 100644
  	size_t len;
  	char buf[201];
  
-@@ -2182,8 +2182,8 @@ static int kdb_dmesg(int argc, const char **argv)
+@@ -2180,8 +2180,8 @@ static int kdb_dmesg(int argc, const char **argv)
  		kdb_set(2, setargs);
  	}
  
@@ -326,7 +326,7 @@ index 4e09fab52faf..048baadd7a41 100644
  		n++;
  
  	if (lines < 0) {
-@@ -2215,8 +2215,8 @@ static int kdb_dmesg(int argc, const char **argv)
+@@ -2213,8 +2213,8 @@ static int kdb_dmesg(int argc, const char **argv)
  	if (skip >= n || skip < 0)
  		return 0;
  
@@ -338,10 +338,10 @@ index 4e09fab52faf..048baadd7a41 100644
  			skip--;
  			continue;
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index 986fc9fad210..b992be31824f 100644
+index fb33db0b143b9..cc5f7e0fb1573 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -3394,6 +3394,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_reason_str);
+@@ -3423,6 +3423,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_reason_str);
   */
  void kmsg_dump(enum kmsg_dump_reason reason)
  {
@@ -349,7 +349,7 @@ index 986fc9fad210..b992be31824f 100644
  	struct kmsg_dumper *dumper;
  	unsigned long flags;
  
-@@ -3413,25 +3414,21 @@ void kmsg_dump(enum kmsg_dump_reason reason)
+@@ -3442,25 +3443,21 @@ void kmsg_dump(enum kmsg_dump_reason reason)
  			continue;
  
  		/* initialize iterator with data about the stored records */
@@ -380,7 +380,7 @@ index 986fc9fad210..b992be31824f 100644
   * @syslog: include the "<4>" prefixes
   * @line: buffer to copy the line to
   * @size: maximum size of the buffer
-@@ -3448,7 +3445,7 @@ void kmsg_dump(enum kmsg_dump_reason reason)
+@@ -3477,7 +3474,7 @@ void kmsg_dump(enum kmsg_dump_reason reason)
   *
   * The function is similar to kmsg_dump_get_line(), but grabs no locks.
   */
@@ -389,7 +389,7 @@ index 986fc9fad210..b992be31824f 100644
  			       char *line, size_t size, size_t *len)
  {
  	struct printk_info info;
-@@ -3459,16 +3456,16 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
+@@ -3488,16 +3485,16 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
  
  	prb_rec_init_rd(&r, &info, line, size);
  
@@ -409,7 +409,7 @@ index 986fc9fad210..b992be31824f 100644
  					 &info, &line_count)) {
  			goto out;
  		}
-@@ -3477,7 +3474,7 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
+@@ -3506,7 +3503,7 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
  
  	}
  
@@ -418,7 +418,7 @@ index 986fc9fad210..b992be31824f 100644
  	ret = true;
  out:
  	if (len)
-@@ -3487,7 +3484,7 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
+@@ -3516,7 +3513,7 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
  
  /**
   * kmsg_dump_get_line - retrieve one kmsg log line
@@ -427,7 +427,7 @@ index 986fc9fad210..b992be31824f 100644
   * @syslog: include the "<4>" prefixes
   * @line: buffer to copy the line to
   * @size: maximum size of the buffer
-@@ -3502,14 +3499,14 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
+@@ -3531,14 +3528,14 @@ bool kmsg_dump_get_line_nolock(struct kmsg_dumper *dumper, bool syslog,
   * A return value of FALSE indicates that there are no more records to
   * read.
   */
@@ -444,7 +444,7 @@ index 986fc9fad210..b992be31824f 100644
  	logbuf_unlock_irqrestore(flags);
  
  	return ret;
-@@ -3518,7 +3515,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
+@@ -3547,7 +3544,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
  
  /**
   * kmsg_dump_get_buffer - copy kmsg log lines
@@ -453,7 +453,7 @@ index 986fc9fad210..b992be31824f 100644
   * @syslog: include the "<4>" prefixes
   * @buf: buffer to copy the line to
   * @size: maximum size of the buffer
-@@ -3535,7 +3532,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
+@@ -3564,7 +3561,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_line);
   * A return value of FALSE indicates that there are no more records to
   * read.
   */
@@ -462,7 +462,7 @@ index 986fc9fad210..b992be31824f 100644
  			  char *buf, size_t size, size_t *len_out)
  {
  	struct printk_info info;
-@@ -3547,19 +3544,19 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
+@@ -3576,19 +3573,19 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
  	bool ret = false;
  	bool time = printk_time;
  
@@ -487,7 +487,7 @@ index 986fc9fad210..b992be31824f 100644
  		logbuf_unlock_irqrestore(flags);
  		goto out;
  	}
-@@ -3570,7 +3567,7 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
+@@ -3599,7 +3596,7 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
  	 * because this function (by way of record_print_text()) will
  	 * not write more than size-1 bytes of text into @buf.
  	 */
@@ -496,7 +496,7 @@ index 986fc9fad210..b992be31824f 100644
  				     size - 1, syslog, time);
  
  	/*
-@@ -3583,7 +3580,7 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
+@@ -3612,7 +3609,7 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
  
  	len = 0;
  	prb_for_each_record(seq, prb, seq, &r) {
@@ -505,7 +505,7 @@ index 986fc9fad210..b992be31824f 100644
  			break;
  
  		len += record_print_text(&r, syslog, time);
-@@ -3592,7 +3589,7 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
+@@ -3621,7 +3618,7 @@ bool kmsg_dump_get_buffer(struct kmsg_dumper *dumper, bool syslog,
  		prb_rec_init_rd(&r, &info, buf + len, size - len);
  	}
  
@@ -514,7 +514,7 @@ index 986fc9fad210..b992be31824f 100644
  	ret = true;
  	logbuf_unlock_irqrestore(flags);
  out:
-@@ -3604,7 +3601,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
+@@ -3633,7 +3630,7 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
  
  /**
   * kmsg_dump_rewind_nolock - reset the iterator (unlocked version)
@@ -523,7 +523,7 @@ index 986fc9fad210..b992be31824f 100644
   *
   * Reset the dumper's iterator so that kmsg_dump_get_line() and
   * kmsg_dump_get_buffer() can be called again and used multiple
-@@ -3612,26 +3609,26 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
+@@ -3641,26 +3638,26 @@ EXPORT_SYMBOL_GPL(kmsg_dump_get_buffer);
   *
   * The function is similar to kmsg_dump_rewind(), but grabs no locks.
   */

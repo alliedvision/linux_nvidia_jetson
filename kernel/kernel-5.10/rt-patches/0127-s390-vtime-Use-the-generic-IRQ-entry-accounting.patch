@@ -1,7 +1,7 @@
-From 835a8a26a4792d125801bbcfd7a3f6134fa112b8 Mon Sep 17 00:00:00 2001
+From c544e5e97a3def975caddf597ac2afb27b7d1379 Mon Sep 17 00:00:00 2001
 From: Frederic Weisbecker <frederic@kernel.org>
 Date: Wed, 2 Dec 2020 12:57:29 +0100
-Subject: [PATCH 127/322] s390/vtime: Use the generic IRQ entry accounting
+Subject: [PATCH 127/323] s390/vtime: Use the generic IRQ entry accounting
 X-NVConfidentiality: public
 
 s390 has its own version of IRQ entry accounting because it doesn't
@@ -28,10 +28,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  5 files changed, 9 insertions(+), 17 deletions(-)
 
 diff --git a/arch/Kconfig b/arch/Kconfig
-index 240277d5626c..628e1e7fe302 100644
+index 72e4cef062aca..aa8fc5f8e7c8b 100644
 --- a/arch/Kconfig
 +++ b/arch/Kconfig
-@@ -646,6 +646,12 @@ config HAVE_TIF_NOHZ
+@@ -654,6 +654,12 @@ config HAVE_TIF_NOHZ
  config HAVE_VIRT_CPU_ACCOUNTING
  	bool
  
@@ -44,7 +44,7 @@ index 240277d5626c..628e1e7fe302 100644
  config ARCH_HAS_SCALED_CPUTIME
  	bool
  
-@@ -660,7 +666,6 @@ config HAVE_VIRT_CPU_ACCOUNTING_GEN
+@@ -668,7 +674,6 @@ config HAVE_VIRT_CPU_ACCOUNTING_GEN
  	  some 32-bit arches may require multiple accesses, so proper
  	  locking is needed to protect against concurrent accesses.
  
@@ -53,7 +53,7 @@ index 240277d5626c..628e1e7fe302 100644
  	bool
  	help
 diff --git a/arch/s390/Kconfig b/arch/s390/Kconfig
-index 878993982e39..2e78071551e7 100644
+index 878993982e39d..2e78071551e7a 100644
 --- a/arch/s390/Kconfig
 +++ b/arch/s390/Kconfig
 @@ -183,6 +183,7 @@ config S390
@@ -65,7 +65,7 @@ index 878993982e39..2e78071551e7 100644
  	select IOMMU_SUPPORT		if PCI
  	select MODULES_USE_ELF_RELA
 diff --git a/arch/s390/include/asm/vtime.h b/arch/s390/include/asm/vtime.h
-index 3622d4ebc73a..fac6a67988eb 100644
+index 3622d4ebc73aa..fac6a67988eb5 100644
 --- a/arch/s390/include/asm/vtime.h
 +++ b/arch/s390/include/asm/vtime.h
 @@ -2,7 +2,6 @@
@@ -77,7 +77,7 @@ index 3622d4ebc73a..fac6a67988eb 100644
  
  #endif /* _S390_VTIME_H */
 diff --git a/arch/s390/kernel/vtime.c b/arch/s390/kernel/vtime.c
-index 710135905deb..18a97631af43 100644
+index eb98d145db9a6..f4956d7403b3f 100644
 --- a/arch/s390/kernel/vtime.c
 +++ b/arch/s390/kernel/vtime.c
 @@ -248,10 +248,6 @@ void vtime_account_kernel(struct task_struct *tsk)
@@ -92,7 +92,7 @@ index 710135905deb..18a97631af43 100644
   * Sorted add to a list. List is linear searched until first bigger
   * element is found.
 diff --git a/kernel/sched/cputime.c b/kernel/sched/cputime.c
-index e03568c5f584..1d78b835ec8b 100644
+index e03568c5f5842..1d78b835ec8b4 100644
 --- a/kernel/sched/cputime.c
 +++ b/kernel/sched/cputime.c
 @@ -417,23 +417,14 @@ void vtime_task_switch(struct task_struct *prev)

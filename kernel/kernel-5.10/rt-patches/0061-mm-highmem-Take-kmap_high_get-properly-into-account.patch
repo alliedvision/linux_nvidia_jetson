@@ -1,7 +1,7 @@
-From 726e9e7977ab6b014352d5b5f02323c44a192905 Mon Sep 17 00:00:00 2001
+From b8fffa8c335a1838c0057b061ce0e614de7c7078 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Nov 2020 11:59:32 +0100
-Subject: [PATCH 061/322] mm/highmem: Take kmap_high_get() properly into
+Subject: [PATCH 061/323] mm/highmem: Take kmap_high_get() properly into
  account
 X-NVConfidentiality: public
 
@@ -27,7 +27,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 13 insertions(+), 6 deletions(-)
 
 diff --git a/mm/highmem.c b/mm/highmem.c
-index 8db577e5290c..72b9a2d95c72 100644
+index 8db577e5290cc..72b9a2d95c72a 100644
 --- a/mm/highmem.c
 +++ b/mm/highmem.c
 @@ -422,12 +422,15 @@ static inline void *arch_kmap_local_high_get(struct page *page)

@@ -473,7 +473,7 @@ chk_pltfm_api(void *drv_adapter, enum halmac_interface intf,
 
 /**
  * halmac_get_version() - get HALMAC version
- * @version : return version of major, prototype and minor information
+ * @version : return version of major, prototype, minor and patch information
  * Author : KaiYuan Chang / Ivan Lin
  * Return : enum halmac_ret_status
  * More details of status code can be found in prototype document
@@ -484,6 +484,7 @@ halmac_get_version(struct halmac_ver *version)
 	version->major_ver = (u8)HALMAC_MAJOR_VER;
 	version->prototype_ver = (u8)HALMAC_PROTOTYPE_VER;
 	version->minor_ver = (u8)HALMAC_MINOR_VER;
+	version->patch_ver = (u8)HALMAC_PATCH_VER;
 
 	return HALMAC_RET_SUCCESS;
 }

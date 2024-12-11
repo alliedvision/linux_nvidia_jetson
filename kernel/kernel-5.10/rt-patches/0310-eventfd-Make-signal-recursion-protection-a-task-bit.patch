@@ -1,7 +1,7 @@
-From 124e053690598dcdd0205075d2e6aa13130cadff Mon Sep 17 00:00:00 2001
+From 6cfa80bd7f992630d6814e47824cdd7cf4d639a9 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 17 Dec 2021 11:32:09 +0100
-Subject: [PATCH 310/322] eventfd: Make signal recursion protection a task bit
+Subject: [PATCH 310/323] eventfd: Make signal recursion protection a task bit
 X-NVConfidentiality: public
 
 Upstream commit b542e383d8c005f06a131e2b40d5889b812f19c6
@@ -40,10 +40,10 @@ Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
  4 files changed, 15 insertions(+), 14 deletions(-)
 
 diff --git a/fs/aio.c b/fs/aio.c
-index c90e045a37bc..e1181dc37be1 100644
+index 43315af1c83ac..7030157e99338 100644
 --- a/fs/aio.c
 +++ b/fs/aio.c
-@@ -1765,7 +1765,7 @@ static int aio_poll_wake(struct wait_queue_entry *wait, unsigned mode, int sync,
+@@ -1776,7 +1776,7 @@ static int aio_poll_wake(struct wait_queue_entry *wait, unsigned mode, int sync,
  		list_del_init(&req->wait.entry);
  		list_del(&iocb->ki_list);
  		iocb->ki_res.res = mangle_poll(mask);
@@ -53,7 +53,7 @@ index c90e045a37bc..e1181dc37be1 100644
  			INIT_WORK(&req->work, aio_poll_put_work);
  			schedule_work(&req->work);
 diff --git a/fs/eventfd.c b/fs/eventfd.c
-index 4a14295cffe0..8f017bde869e 100644
+index 3673eb8de0356..ce9ca07d6c004 100644
 --- a/fs/eventfd.c
 +++ b/fs/eventfd.c
 @@ -25,8 +25,6 @@
@@ -93,7 +93,7 @@ index 4a14295cffe0..8f017bde869e 100644
  
  	return n;
 diff --git a/include/linux/eventfd.h b/include/linux/eventfd.h
-index 6cd2a92daf20..ab602b95dfd0 100644
+index c1bd4883e2faf..842d223dfe175 100644
 --- a/include/linux/eventfd.h
 +++ b/include/linux/eventfd.h
 @@ -14,6 +14,7 @@
@@ -104,9 +104,9 @@ index 6cd2a92daf20..ab602b95dfd0 100644
  
  /*
   * CAREFUL: Check include/uapi/asm-generic/fcntl.h when defining
-@@ -43,11 +44,9 @@ __u64 eventfd_signal_mask(struct eventfd_ctx *ctx, __u64 n, unsigned mask);
- int eventfd_ctx_remove_wait_queue(struct eventfd_ctx *ctx, wait_queue_entry_t *wait,
+@@ -44,11 +45,9 @@ int eventfd_ctx_remove_wait_queue(struct eventfd_ctx *ctx, wait_queue_entry_t *w
  				  __u64 *cnt);
+ void eventfd_ctx_do_read(struct eventfd_ctx *ctx, __u64 *cnt);
  
 -DECLARE_PER_CPU(int, eventfd_wake_count);
 -
@@ -118,7 +118,7 @@ index 6cd2a92daf20..ab602b95dfd0 100644
  }
  
  #else /* CONFIG_EVENTFD */
-@@ -84,9 +83,9 @@ static inline int eventfd_ctx_remove_wait_queue(struct eventfd_ctx *ctx,
+@@ -85,9 +84,9 @@ static inline int eventfd_ctx_remove_wait_queue(struct eventfd_ctx *ctx,
  	return -ENOSYS;
  }
  
@@ -129,9 +129,9 @@ index 6cd2a92daf20..ab602b95dfd0 100644
 +	return true;
  }
  
- #endif
+ static inline void eventfd_ctx_do_read(struct eventfd_ctx *ctx, __u64 *cnt)
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index c9a8fe41936b..34c86a285cb5 100644
+index a73528e8235d4..13d4957189bb9 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -848,6 +848,10 @@ struct task_struct {

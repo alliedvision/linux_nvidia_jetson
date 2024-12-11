@@ -66,8 +66,9 @@ _iqk_check_cal_8822c(
 	}
 	odm_write_1byte(dm, 0x1b10, 0x0);
 	// disable slef-mixer for rx mode
-	odm_set_rf_reg(dm, (enum rf_path)path, 0x8f, BIT(14), 0x0);
-	odm_set_rf_reg(dm, (enum rf_path)path, 0x0, 0xf0000, 0x1);
+	//odm_set_rf_reg(dm, (enum rf_path)path, 0x0, 0xf0000, 0x1);
+	if(dm->cut_version == ODM_CUT_E)
+		odm_set_rf_reg(dm, (enum rf_path)path, 0x8f, BIT(14), 0x0);
 	halrf_delay_10us(1);
 	odm_write_4byte(dm, 0x1b00, 0x8 | path << 1);
 	if(!fail)
@@ -75,7 +76,7 @@ _iqk_check_cal_8822c(
 	else
 		odm_set_bb_reg(dm, R_0x1b20, BIT(26) | BIT(25), 0x0);
 	//RF_DBG(dm, DBG_RF_IQK, "[IQK]delay count = 0x%x!!!\n", delay_count);
-	//return fail;
+	//return fail;	
 	return false;
 }
 
@@ -541,19 +542,22 @@ void _iqk_set_gnt_wl_high_8822c(struct dm_struct *dm)
 
 	/*GNT_WL = 1*/
 	val = (state << 1) | 0x1;
-	_iqk_btc_write_indirect_reg_8822c(dm, 0x38, 0x3000, val); /*0x38[13:12]*/
-	_iqk_btc_write_indirect_reg_8822c(dm, 0x38, 0x0300, val); /*0x38[9:8]*/
+	_iqk_btc_write_indirect_reg_8822c(dm, 0x38, 0xff00, 0x77); /*0x38[13:12]*/
+	//_iqk_btc_write_indirect_reg_8822c(dm, 0x38, 0x0300, val); /*0x38[9:8]*/
 }
 
 void _iqk_set_gnt_bt_low_8822c(struct dm_struct *dm)
 {
+#if 0
 	u32 val = 0;
 	u8 state = 0x0, sw_control = 0x1;
 
 	/*GNT_BT = 0*/
 	val = (sw_control) ? ((state << 1) | 0x1) : 0;
-	_iqk_btc_write_indirect_reg_8822c(dm, 0x38, 0xc000, val); /*0x38[15:14]*/
-	_iqk_btc_write_indirect_reg_8822c(dm, 0x38, 0x0c00, val); /*0x38[11:10]*/
+	//_iqk_btc_write_indirect_reg_8822c(dm, 0x38, 0xc000, val); /*0x38[15:14]*/
+	//_iqk_btc_write_indirect_reg_8822c(dm, 0x38, 0x0c00, val); /*0x38[11:10]*/
+#endif
+	return;
 }
 
 void _iqk_set_gnt_wl_gnt_bt_8822c(struct dm_struct *dm, boolean beforeK)
@@ -562,7 +566,7 @@ void _iqk_set_gnt_wl_gnt_bt_8822c(struct dm_struct *dm, boolean beforeK)
 
 	if (beforeK) {
 		_iqk_set_gnt_wl_high_8822c(dm);
-		_iqk_set_gnt_bt_low_8822c(dm);
+		//_iqk_set_gnt_bt_low_8822c(dm);
 	} else {
 		_iqk_btc_write_indirect_reg_8822c(dm, 0x38, MASKDWORD, iqk_info->tmp_gntwl);
 	}
@@ -2996,7 +3000,7 @@ void _iqk_reload_iqk_setting_8822c(
 				odm_set_bb_reg(dm, R_0x1b20, BIT(26), 0x0);
 				odm_set_bb_reg(dm, 0x1b38, MASKDWORD, iqk_info->nbtxk_1b38[path]);
 				odm_set_bb_reg(dm, 0x1b3c, MASKDWORD, iqk_info->nbrxk_1b3c[path]);
-				} else {
+			} else {
 				odm_set_bb_reg(dm, R_0x1b20, BIT(26), 0x1);
 				odm_set_bb_reg(dm, R_0x1b38, MASKDWORD, 0x40000000);
 				odm_set_bb_reg(dm, R_0x1b3c, MASKDWORD, 0x40000000);
@@ -3540,8 +3544,11 @@ _iqk_rx_iqk_gain_search_fail_8822c(
 		IQK_CMD = (0x208 | (1 << (path + 4)) | (path << 1));
 		RF_DBG(dm, DBG_RF_IQK, "[IQK]S%d GS%d_Trigger = 0x%x\n", path,
 	       	       step, IQK_CMD);
-		odm_set_rf_reg(dm, (enum rf_path)path, 0x0, 0xf0000, 0x4);
-		odm_set_rf_reg(dm, (enum rf_path)path, 0x8f, BIT(14), 0x1);
+		
+		if(dm->cut_version == ODM_CUT_E) {
+			odm_set_rf_reg(dm, (enum rf_path)path, 0x0, 0xf0000, 0x4);
+			odm_set_rf_reg(dm, (enum rf_path)path, 0x8f, BIT(14), 0x1);
+		}
 		halrf_delay_10us(1);
 		odm_write_4byte(dm, 0x1b00, IQK_CMD);
 		odm_write_4byte(dm, 0x1b00, IQK_CMD + 0x1);
@@ -3560,8 +3567,11 @@ _iqk_rx_iqk_gain_search_fail_8822c(
 		IQK_CMD = (0x308 | (1 << (path + 4)) | (path << 1));
 		RF_DBG(dm, DBG_RF_IQK, "[IQK]S%d GS%d_Trigger = 0x%x\n", path,
 		       step, IQK_CMD);
-		odm_set_rf_reg(dm, (enum rf_path)path, 0x0, 0xf0000, 0x7);
-		odm_set_rf_reg(dm, (enum rf_path)path, 0x8f, BIT(14), 0x0);
+		
+		if(dm->cut_version == ODM_CUT_E) {
+			odm_set_rf_reg(dm, (enum rf_path)path, 0x0, 0xf0000, 0x7);
+			odm_set_rf_reg(dm, (enum rf_path)path, 0x8f, BIT(14), 0x0);
+		}
 		halrf_delay_10us(1);
 		odm_write_4byte(dm, 0x1b00, IQK_CMD);
 		odm_write_4byte(dm, 0x1b00, IQK_CMD + 0x1);
@@ -3656,23 +3666,39 @@ _lok_one_shot_8822c(
 	u32 IQK_CMD = 0x0;
 	u8 idac_i, idac_q;
 
+	_iqk_set_gnt_wl_gnt_bt_8822c(dm, true);
 	if (for_rxk) {
 		RF_DBG(dm, DBG_RF_IQK,
 			"[IQK]======S%d LOK for RXK======\n", path);
 		IQK_CMD = 0x8 | (1 << (4 + path)) | (path << 1);
-		odm_set_rf_reg(dm, (enum rf_path)path, 0x0, 0xf0000, 0x6);
-		odm_set_rf_reg(dm, (enum rf_path)path, 0x8f, BIT(14), 0x1);
+		if(dm->cut_version == ODM_CUT_E) {
+			odm_set_rf_reg(dm, (enum rf_path)path, 0x0, 0xf0000, 0x6);
+			odm_set_rf_reg(dm, (enum rf_path)path, 0x8f, BIT(14), 0x1);
+			RF_DBG(dm, DBG_RF_IQK, "[IQK]0x00 =%x, 0x8f = 0x%x\n", odm_get_rf_reg(dm, path, 0x0, 0xfffff), odm_get_rf_reg(dm, path, 0x8f, 0xfffff));
+			RF_DBG(dm, DBG_RF_IQK, "[IQK]0x38 =%x, 0x8f = 0x%x\n", _iqk_btc_read_indirect_reg_8822c(dm, 0x38), odm_get_bb_reg(dm, 0x70, 0xff000000));
+
+		}
 		halrf_delay_10us(1);
 	} else { 
 		RF_DBG(dm, DBG_RF_IQK,
 			"[IQK]======S%d LOK======\n", path);
 		IQK_CMD = 0x8 | (1 << (4 + path)) | (path << 1);
-		odm_set_rf_reg(dm, (enum rf_path)path, 0x0, 0xf0000, 0x4);
-		odm_set_rf_reg(dm, (enum rf_path)path, 0x8f, BIT(14), 0x1);
+		
+		if(dm->cut_version == ODM_CUT_E) {
+			odm_set_rf_reg(dm, (enum rf_path)path, 0x0, 0xf0000, 0x4);
+			odm_set_rf_reg(dm, (enum rf_path)path, 0x8f, BIT(14), 0x1);
+			RF_DBG(dm, DBG_RF_IQK, "[IQK]0x00 =%x, 0x8f = 0x%x\n", odm_get_rf_reg(dm, path, 0x0, 0xfffff), odm_get_rf_reg(dm, path, 0x8f, 0xfffff));
+			RF_DBG(dm, DBG_RF_IQK, "[IQK]0x38 =%x, 0x8f = 0x%x\n", _iqk_btc_read_indirect_reg_8822c(dm, 0x38), odm_get_bb_reg(dm, 0x70, 0xff000000));
+
+	}
 		halrf_delay_10us(1);
 	}
 	RF_DBG(dm, DBG_RF_IQK, "[IQK]LOK_Trigger = 0x%x\n", IQK_CMD);
-	_iqk_set_gnt_wl_gnt_bt_8822c(dm, true);
+
+	RF_DBG(dm, DBG_RF_IQK, "[IQK]0x00 =%x, 0x8f = 0x%x\n", odm_get_rf_reg(dm, path, 0x0, 0xfffff), odm_get_rf_reg(dm, path, 0x8f, 0xfffff));
+	RF_DBG(dm, DBG_RF_IQK, "[IQK]0x38 =%x, 0x8f = 0x%x\n", _iqk_btc_read_indirect_reg_8822c(dm, 0x38), odm_get_bb_reg(dm, 0x70, 0xff000000));
+
+	
 	_iqk_rf_direct_access_8822c(dm, (enum rf_path)path, false);
 	odm_write_4byte(dm, 0x1b00, IQK_CMD);
 	odm_write_4byte(dm, 0x1b00, IQK_CMD + 1);	
@@ -3685,7 +3711,7 @@ _lok_one_shot_8822c(
 	odm_set_rf_reg(dm, (enum rf_path)path, RF_0xef, BIT(4), 0x0);
 
 	LOK_notready = _iqk_check_cal_8822c(dm, path, 0x0);
-#if 0
+#if 1
 	if (path == RF_PATH_B)
 		odm_set_rf_reg(dm, (enum rf_path)path, RF_0x00, 0xf0000, 0x1);
 #endif
@@ -3726,6 +3752,8 @@ _iqk_one_shot_8822c(
 	if ((*dm->band_width == CHANNEL_WIDTH_5) ||(*dm->band_width == CHANNEL_WIDTH_10))
 		is_NB_IQK = true;
 
+	_iqk_set_gnt_wl_gnt_bt_8822c(dm, true);
+
 	if (idx == TXIQK) {
 		if (is_NB_IQK)
 			temp = (0x1 << 8) | (1 << (path + 4)) | (path << 1);
@@ -3733,8 +3761,11 @@ _iqk_one_shot_8822c(
 			temp = ((*dm->band_width + 4) << 8) | (1 << (path + 4)) | (path << 1);
 		iqk_cmd = 0x8 | temp;
 		RF_DBG(dm, DBG_RF_IQK, "[IQK]TXK_Trigger = 0x%x\n", iqk_cmd);
-		odm_set_rf_reg(dm, (enum rf_path)path, 0x0, 0xf0000, 0x4);
-		odm_set_rf_reg(dm, (enum rf_path)path, 0x8f, BIT(14), 0x1);
+		
+		if(dm->cut_version == ODM_CUT_E){
+			odm_set_rf_reg(dm, (enum rf_path)path, 0x0, 0xf0000, 0x4);
+			odm_set_rf_reg(dm, (enum rf_path)path, 0x8f, BIT(14), 0x1);
+		}
 		halrf_delay_10us(1);
 		/*{0xf8000118, 0xf800012a} ==> NB TXK   (CMD = 1)*/
 		/*{0xf8000418, 0xf800042a} ==> 20 WBTXK (CMD = 3)*/
@@ -3747,8 +3778,11 @@ _iqk_one_shot_8822c(
 			temp = ((*dm->band_width + 7) << 8) | (1 << (path + 4)) | (path << 1);
 		iqk_cmd = 0x8 | temp;
 		RF_DBG(dm, DBG_RF_IQK, "[IQK]RXK1_Trigger = 0x%x\n", iqk_cmd);
-		odm_set_rf_reg(dm, (enum rf_path)path, 0x0, 0xf0000, 0x6);
-		odm_set_rf_reg(dm, (enum rf_path)path, 0x8f, BIT(14), 0x1);
+		
+		if(dm->cut_version == ODM_CUT_E){
+			odm_set_rf_reg(dm, (enum rf_path)path, 0x0, 0xf0000, 0x6);
+			odm_set_rf_reg(dm, (enum rf_path)path, 0x8f, BIT(14), 0x1);
+		}
 		halrf_delay_10us(1);
 		/*{0xf8000218, 0xf800021a} ==> NB RXK1   (CMD = 1)*/
 		/*{0xf8000718, 0xf800071a} ==> 20 WBRXK1 (CMD = 7)*/
@@ -3761,32 +3795,39 @@ _iqk_one_shot_8822c(
 			temp = ((*dm->band_width + 0xa) << 8) | (1 << (path + 4)) | (path << 1);
 		iqk_cmd = 0x8 | temp;
 		RF_DBG(dm, DBG_RF_IQK, "[IQK]RXK2_Trigger = 0x%x\n", iqk_cmd);
-		odm_set_rf_reg(dm, (enum rf_path)path, 0x0, 0xf0000, 0x7);
-		odm_set_rf_reg(dm, (enum rf_path)path, 0x8f, BIT(14), 0x0);
+		
+		if(dm->cut_version == ODM_CUT_E) {
+			odm_set_rf_reg(dm, (enum rf_path)path, 0x0, 0xf0000, 0x7);
+			odm_set_rf_reg(dm, (enum rf_path)path, 0x8f, BIT(14), 0x0);
+		}
 		halrf_delay_10us(1);
 		/*{0xf8000318, 0xf800031a} ==> NB RXK2   (CMD = 3)*/
 		/*{0xf8000918, 0xf8000a1a} ==> 20 WBRXK2 (CMD = a)*/
 		/*{0xf8000a18, 0xf8000b1a} ==> 40 WBRXK2 (CMD = b)*/
 		/*{0xf8000b18, 0xf8000c1a} ==> 80 WBRXK2 (CMD = c)*/
 	}
+
+	RF_DBG(dm, DBG_RF_IQK, "[IQK]0x0 =%x, 0x8f = 0x%x\n", odm_get_rf_reg(dm, path, 0x0, 0xfffff), odm_get_rf_reg(dm, path, 0x8f, 0xfffff));
+	RF_DBG(dm, DBG_RF_IQK, "[IQK]0x38 =%x, 0x73 = 0x%x\n", _iqk_btc_read_indirect_reg_8822c(dm, 0x38), odm_get_bb_reg(dm, 0x70, 0xff000000));
+
 	if (rf->rf_dbg_comp & DBG_RF_IQK) {
 		if (idx != TXIQK) {
 			odm_write_4byte(dm, 0x1b00, 0x8 | path << 1);
 			RF_DBG(dm, DBG_RF_IQK, "[IQK]0x1bcc =0x%x\n", odm_read_1byte(dm, 0x1bcc));
 		}
 	}
-	_iqk_set_gnt_wl_gnt_bt_8822c(dm, true);
+	//_iqk_set_gnt_wl_gnt_bt_8822c(dm, true);
 	odm_write_4byte(dm, 0x1b00, iqk_cmd);
 	odm_write_4byte(dm, 0x1b00, iqk_cmd + 0x1);
 	fail = _iqk_check_cal_8822c(dm, path, 0x1);
 	
-#if 0
+#if 1
 	if (path == RF_PATH_B)
 		odm_set_rf_reg(dm, (enum rf_path)path, RF_0x00, 0xf0000, 0x1);
 #endif
 	_iqk_set_gnt_wl_gnt_bt_8822c(dm, false);
 
-	if (idx == TXIQK) {
+	if (idx == TXIQK) {		
 		odm_write_4byte(dm, 0x1b00, 0x8 | path << 1);
 		iqk_info->iqk_fail_report[0][path][TXIQK] = fail;
 		if (!fail){
@@ -3796,7 +3837,7 @@ _iqk_one_shot_8822c(
 				_iqk_backup_iqk_8822c(dm, 0x2, path);
 		}
 	}
-	if (idx == RXIQK2) {
+	if (idx == RXIQK2) {		
 		odm_write_4byte(dm, 0x1b00, 0x8 | path << 1);
 		temp = odm_get_rf_reg(dm,(enum rf_path)path, RF_0x0, MASK20BITS) >> 5;
 		temp = temp & 0xff;
@@ -4658,6 +4699,8 @@ void _phy_iq_calibrate_8822c(
 
 	if (*dm->mp_mode)
 		is_mp = true;
+	else
+		is_mp = false;
 #if 0
 	if (!is_mp)
 		if (_iqk_reload_iqk_8822c(dm, reset))
@@ -4767,10 +4810,6 @@ void phy_iq_calibrate_8822c(
 	if (!(rf->rf_supportability & HAL_RF_IQK))
 		return;
 
-	if (dm->mp_mode)	
-		if (*dm->mp_mode)
-		halrf_iqk_hwtx_check(dm, true);
-	
 	//if (!(*dm->mp_mode))
 	//	_iqk_check_coex_status(dm, true);
 
@@ -4786,9 +4825,6 @@ void phy_iq_calibrate_8822c(
 		_phy_iq_calibrate_8822c(dm, clear, segment_iqk);
 	}
 	_iqk_fail_count_8822c(dm);
-	if (dm->mp_mode)	
-		if (*dm->mp_mode)
-			halrf_iqk_hwtx_check(dm, false);
 #if (DM_ODM_SUPPORT_TYPE & ODM_AP)
 	_iqk_iqk_fail_report_8822c(dm);
 #endif

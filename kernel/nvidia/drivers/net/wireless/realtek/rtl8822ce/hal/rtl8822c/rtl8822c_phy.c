@@ -306,9 +306,6 @@ u8 rtl8822c_phy_init(PADAPTER adapter)
 	if (err)
 		return _FALSE;
 
-#ifdef CONFIG_RTW_IOT_CCK_PD_INIT
-	phydm_iot_patch_id_update(phydm, 0x021f0800, true);
-#endif
 	ret = config_phydm_parameter_init_8822c(phydm, ODM_PRE_SETTING);
 	if (FALSE == ret)
 		return _FALSE;
@@ -320,9 +317,6 @@ u8 rtl8822c_phy_init(PADAPTER adapter)
 	if (_FALSE == ok)
 		return _FALSE;
 
-#ifdef CONFIG_RTW_IOT_CCK_PD_INIT
-	phydm_iot_patch_id_update(phydm, 0x021f0800, true);
-#endif
 	ret = config_phydm_parameter_init_8822c(phydm, ODM_POST_SETTING);
 	if (FALSE == ret)
 		return _FALSE;
@@ -444,8 +438,6 @@ static void init_phydm_cominfo(PADAPTER adapter)
 	PHAL_DATA_TYPE hal;
 	struct dm_struct *p_dm_odm;
 	u32 support_ability = 0;
-	u8 cut_ver = ODM_CUT_A, fab_ver = ODM_TSMC;
-
 
 	hal = GET_HAL_DATA(adapter);
 	p_dm_odm = &hal->odmpriv;
@@ -455,41 +447,9 @@ static void init_phydm_cominfo(PADAPTER adapter)
 	odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_PACKAGE_TYPE, hal->PackageType);
 	odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_IC_TYPE, ODM_RTL8822C);
 
-	if (IS_CHIP_VENDOR_TSMC(hal->version_id))
-		fab_ver = ODM_TSMC;
-	else if (IS_CHIP_VENDOR_UMC(hal->version_id))
-		fab_ver = ODM_UMC;
-	else if (IS_CHIP_VENDOR_SMIC(hal->version_id))
-		fab_ver = ODM_UMC + 1;
-	else
-		RTW_INFO("%s: unknown Fv=%d !!\n",
-			 __FUNCTION__, GET_CVID_MANUFACTUER(hal->version_id));
-
-	if (IS_A_CUT(hal->version_id))
-		cut_ver = ODM_CUT_A;
-	else if (IS_B_CUT(hal->version_id))
-		cut_ver = ODM_CUT_B;
-	else if (IS_C_CUT(hal->version_id))
-		cut_ver = ODM_CUT_C;
-	else if (IS_D_CUT(hal->version_id))
-		cut_ver = ODM_CUT_D;
-	else if (IS_E_CUT(hal->version_id))
-		cut_ver = ODM_CUT_E;
-	else if (IS_F_CUT(hal->version_id))
-		cut_ver = ODM_CUT_F;
-	else if (IS_I_CUT(hal->version_id))
-		cut_ver = ODM_CUT_I;
-	else if (IS_J_CUT(hal->version_id))
-		cut_ver = ODM_CUT_J;
-	else if (IS_K_CUT(hal->version_id))
-		cut_ver = ODM_CUT_K;
-	else
-		RTW_INFO("%s: unknown Cv=%d !!\n",
-			 __FUNCTION__, GET_CVID_CUT_VERSION(hal->version_id));
-
-	RTW_INFO("%s: Fv=%d Cv=%d\n", __FUNCTION__, fab_ver, cut_ver);
-	odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_FAB_VER, fab_ver);
-	odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_CUT_VER, cut_ver);
+	RTW_INFO("%s: Fv=%d Cv=%d\n", __FUNCTION__, hal->version_id.VendorType, hal->version_id.CUTVersion);
+	odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_FAB_VER, hal->version_id.VendorType);
+	odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_CUT_VER, hal->version_id.CUTVersion);
 	odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_DIS_DPD
 		, hal->txpwr_pg_mode == TXPWR_PG_WITH_PWR_IDX ? _TRUE : _FALSE);
 	odm_cmn_info_init(p_dm_odm, ODM_CMNINFO_TSSI_ENABLE
@@ -540,7 +500,6 @@ void rtl8822c_phy_haldm_watchdog(PADAPTER adapter)
 	BOOLEAN bFwCurrentInPSMode = _FALSE;
 	u8 bFwPSAwake = _TRUE;
 	struct pwrctrl_priv *pwrpriv = adapter_to_pwrctl(adapter);
-	u8 lps_changed = _FALSE;
 	u8 in_lps = _FALSE;
 	PADAPTER current_lps_iface = NULL, iface = NULL;
 	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
@@ -571,20 +530,22 @@ void rtl8822c_phy_haldm_watchdog(PADAPTER adapter)
 	}
 
 #ifdef CONFIG_LPS
-	if (pwrpriv->bLeisurePs && bFwCurrentInPSMode && pwrpriv->pwr_mode != PS_MODE_ACTIVE
-#ifdef CONFIG_WMMPS_STA	
-		&& !rtw_is_wmmps_mode(adapter)
-#endif /* CONFIG_WMMPS_STA */
-	) {
+	if (pwrpriv->bLeisurePs && bFwCurrentInPSMode && pwrpriv->pwr_mode != PS_MODE_ACTIVE) {
+		in_lps = _TRUE;
+
 		for (i = 0; i < dvobj->iface_nums; i++) {
 			iface = dvobj->padapters[i];
-			if (pwrpriv->current_lps_hw_port_id == rtw_hal_get_port(iface))
+			if (pwrpriv->current_lps_hw_port_id == rtw_hal_get_port(iface)) {
 				current_lps_iface = iface;
+				rtw_lps_rfon_ctrl(current_lps_iface, rf_on);
+				break;
+			}
 		}
 
-		lps_changed = _TRUE;
-		in_lps = _TRUE;
-		LPS_Leave(current_lps_iface, LPS_CTRL_PHYDM);
+		if (!current_lps_iface) {
+			RTW_WARN("Can't find a adapter with LPS to enable RFON function !\n");
+			goto skip_dm;
+		}
 	}
 #endif
 
@@ -605,8 +566,8 @@ void rtl8822c_phy_haldm_watchdog(PADAPTER adapter)
 skip_dm:
 
 #ifdef CONFIG_LPS
-	if (lps_changed)
-		LPS_Enter(current_lps_iface, LPS_CTRL_PHYDM);
+	if (current_lps_iface)
+		rtw_lps_rfon_ctrl(current_lps_iface, rf_off);
 #endif
 	/*
 	 * Check GPIO to determine current RF on/off and Pbc status.
@@ -922,6 +883,13 @@ static void mac_switch_bandwidth(PADAPTER adapter, u8 pri_ch_idx)
 
 	channel = hal->current_channel;
 	bw = hal->current_channel_bw;
+#ifdef CONFIG_NARROWBAND_SUPPORTING
+	if (adapter->registrypriv.rtw_nb_config == RTW_NB_CONFIG_WIDTH_10)
+		err = rtw_halmac_set_bandwidth(adapter_to_dvobj(adapter), channel, pri_ch_idx, HALMAC_BW_10);
+	else if (adapter->registrypriv.rtw_nb_config == RTW_NB_CONFIG_WIDTH_5)
+		err = rtw_halmac_set_bandwidth(adapter_to_dvobj(adapter), channel, pri_ch_idx, HALMAC_BW_5);
+	else
+#endif
 	err = rtw_halmac_set_bandwidth(adapter_to_dvobj(adapter), channel, pri_ch_idx, bw);
 	if (err) {
 		RTW_INFO(FUNC_ADPT_FMT ": (channel=%d, pri_ch_idx=%d, bw=%d) fail\n",
@@ -969,14 +937,15 @@ static void switch_chnl_and_set_bw_by_drv(PADAPTER adapter, u8 switch_band)
 		mac_switch_bandwidth(adapter, pri_ch_idx);
 
 		/* 3.2 set BB/RF registet */
+
 #ifdef CONFIG_NARROWBAND_SUPPORTING
 		if (adapter->registrypriv.rtw_nb_config == RTW_NB_CONFIG_WIDTH_10) {
 			rtw_write8(adapter, REG_CCK_CHECK_8822C,
-				(rtw_read8(adapter, REG_CCK_CHECK_8822C) | BIT(7)));
+				(rtw_read8(adapter, REG_CCK_CHECK_8822C) | BIT_CHECK_CCK_EN_8822C));
 			ret = config_phydm_switch_bandwidth_8822c(p_dm_odm, pri_ch_idx, CHANNEL_WIDTH_10);
 		} else if (adapter->registrypriv.rtw_nb_config == RTW_NB_CONFIG_WIDTH_5) {
 			rtw_write8(adapter, REG_CCK_CHECK_8822C,
-				(rtw_read8(adapter, REG_CCK_CHECK_8822C) | BIT(7)));
+				(rtw_read8(adapter, REG_CCK_CHECK_8822C) | BIT_CHECK_CCK_EN_8822C));
 			ret = config_phydm_switch_bandwidth_8822c(p_dm_odm, pri_ch_idx, CHANNEL_WIDTH_5);
 		} else
 #endif
@@ -1413,13 +1382,13 @@ static void _sounding_config_su(PADAPTER adapter, struct beamformee_entry *bfee,
 				new_ctrl |= BIT_R_TXBF0_80M_8822C;
 			else if (1 == bfee->su_reg_index)
 				new_ctrl |= BIT_R_TXBF1_80M_8822C;
-			/* fall through */
+			fallthrough;
 		case CHANNEL_WIDTH_40:
 			if (0 == bfee->su_reg_index)
 				new_ctrl |= BIT_R_TXBF0_40M_8822C;
 			else if (1 == bfee->su_reg_index)
 				new_ctrl |= BIT_R_TXBF1_40M_8822C;
-			/* fall through */
+			fallthrough;
 		case CHANNEL_WIDTH_20:
 			if (0 == bfee->su_reg_index)
 				new_ctrl |= BIT_R_TXBF0_20M_8822C;

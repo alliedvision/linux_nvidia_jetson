@@ -1,7 +1,7 @@
-From 5f1f98f43aa21490baa56aa4d6c1c46a090eb6bc Mon Sep 17 00:00:00 2001
+From 865fe2af49c3c6d64e46e5e747bcf5a2fb3232e6 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 26 Mar 2019 18:31:29 +0100
-Subject: [PATCH 278/322] powerpc/stackprotector: work around stack-guard init
+Subject: [PATCH 278/323] powerpc/stackprotector: work around stack-guard init
  from atomic
 X-NVConfidentiality: public
 
@@ -16,7 +16,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 4 insertions(+)
 
 diff --git a/arch/powerpc/include/asm/stackprotector.h b/arch/powerpc/include/asm/stackprotector.h
-index 1c8460e23583..b1653c160bab 100644
+index 1c8460e235838..b1653c160bab9 100644
 --- a/arch/powerpc/include/asm/stackprotector.h
 +++ b/arch/powerpc/include/asm/stackprotector.h
 @@ -24,7 +24,11 @@ static __always_inline void boot_init_stack_canary(void)

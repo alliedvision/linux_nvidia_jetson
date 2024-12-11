@@ -50,6 +50,8 @@ void rtw_btc_ex_display_simple_coex_info(struct btc_coexist *btc);
 void rtw_btc_ex_display_coex_info(struct btc_coexist *btc);
 void rtw_btc_ex_dbg_control(struct btc_coexist *btc, u8 op_code, u8 op_len,
 			    u8 *pdata);
+void rtw_btc_ex_wl_rfk_notify(struct btc_coexist *btc, u8 path,
+							u8 type, u8 state);
 
 #else
 #define rtw_btc_ex_power_on_setting(btc)
@@ -79,4 +81,5 @@ void rtw_btc_ex_dbg_control(struct btc_coexist *btc, u8 op_code, u8 op_len,
 #define rtw_btc_ex_wl_status_change_notify(btc, type)
 #define rtw_btc_ex_display_coex_info(btc)
 #define rtw_btc_ex_dbg_control(btc, op_code, op_len, pdata)
+#define rtw_btc_ex_wl_rfk_notify(btc, path, type, state)
 #endif

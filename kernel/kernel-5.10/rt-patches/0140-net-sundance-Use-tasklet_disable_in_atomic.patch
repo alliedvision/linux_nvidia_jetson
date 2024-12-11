@@ -1,7 +1,7 @@
-From a93ee0ef52b91df6ab614bb5527b486163fd70b1 Mon Sep 17 00:00:00 2001
+From c967fc45762fcdaca38ad7109a013b89c526cd12 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 9 Mar 2021 09:42:12 +0100
-Subject: [PATCH 140/322] net: sundance: Use tasklet_disable_in_atomic().
+Subject: [PATCH 140/323] net: sundance: Use tasklet_disable_in_atomic().
 X-NVConfidentiality: public
 
 tasklet_disable() is used in the timer callback. This might be distangled,
@@ -22,7 +22,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/dlink/sundance.c b/drivers/net/ethernet/dlink/sundance.c
-index e3a8858915b3..df0eab479d51 100644
+index e3a8858915b37..df0eab479d512 100644
 --- a/drivers/net/ethernet/dlink/sundance.c
 +++ b/drivers/net/ethernet/dlink/sundance.c
 @@ -963,7 +963,7 @@ static void tx_timeout(struct net_device *dev, unsigned int txqueue)

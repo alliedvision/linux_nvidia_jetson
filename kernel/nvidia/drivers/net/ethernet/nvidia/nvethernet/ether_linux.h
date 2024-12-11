@@ -543,7 +543,7 @@ struct ether_priv_data {
 	struct ether_vm_irq_data *vm_irq_data;
 #ifdef ETHER_PAGE_POOL
 	/** Pointer to page pool */
-	struct page_pool *page_pool;
+	struct page_pool *page_pool[OSI_MGBE_MAX_NUM_CHANS];
 #endif
 #ifdef CONFIG_DEBUG_FS
 	/** Debug fs directory pointer */

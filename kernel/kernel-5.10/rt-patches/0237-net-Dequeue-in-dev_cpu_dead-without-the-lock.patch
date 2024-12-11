@@ -1,7 +1,7 @@
-From d948b623ff9730984d8766d267b5724d3070942f Mon Sep 17 00:00:00 2001
+From add5de6a04b9fbc87486466479b9f612264e45eb Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 16 Sep 2020 16:15:39 +0200
-Subject: [PATCH 237/322] net: Dequeue in dev_cpu_dead() without the lock
+Subject: [PATCH 237/323] net: Dequeue in dev_cpu_dead() without the lock
 X-NVConfidentiality: public
 
 Upstream uses skb_dequeue() to acquire lock of `input_pkt_queue'. The reason is
@@ -20,10 +20,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/net/core/dev.c b/net/core/dev.c
-index be5595981e6b..d0f41d800c26 100644
+index d59d0a27975f8..a6abc6f010136 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -10982,7 +10982,7 @@ static int dev_cpu_dead(unsigned int oldcpu)
+@@ -10990,7 +10990,7 @@ static int dev_cpu_dead(unsigned int oldcpu)
  		netif_rx_ni(skb);
  		input_queue_head_incr(oldsd);
  	}

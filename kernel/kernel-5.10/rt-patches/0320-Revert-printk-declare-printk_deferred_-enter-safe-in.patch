@@ -1,7 +1,7 @@
-From 2b1d2970a1555f6bc46dbf329aff4e0c3dff08f3 Mon Sep 17 00:00:00 2001
+From 74e06260dc3c6c32181c44aedf61fed460d2dc70 Mon Sep 17 00:00:00 2001
 From: "Luis Claudio R. Goncalves" <lgoncalv@redhat.com>
 Date: Thu, 8 Jun 2023 19:47:25 -0300
-Subject: [PATCH 320/322] Revert "printk: declare
+Subject: [PATCH 320/323] Revert "printk: declare
  printk_deferred_{enter,safe}() in include/linux/printk.h"
 X-NVConfidentiality: public
 
@@ -21,7 +21,7 @@ Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
  1 file changed, 19 deletions(-)
 
 diff --git a/include/linux/printk.h b/include/linux/printk.h
-index 83c7734e9802..7e4352467d83 100644
+index 83c7734e98025..7e4352467d831 100644
 --- a/include/linux/printk.h
 +++ b/include/linux/printk.h
 @@ -609,23 +609,4 @@ static inline void print_hex_dump_debug(const char *prefix_str, int prefix_type,

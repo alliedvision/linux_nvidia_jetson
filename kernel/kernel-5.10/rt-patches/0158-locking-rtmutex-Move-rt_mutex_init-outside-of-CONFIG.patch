@@ -1,7 +1,7 @@
-From 9b8fd47f964c721f1b964327c1abeb0686a55179 Mon Sep 17 00:00:00 2001
+From 4787e7d3e7a8c63b197867e3d9b5566cca53e39d Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 29 Sep 2020 16:32:49 +0200
-Subject: [PATCH 158/322] locking/rtmutex: Move rt_mutex_init() outside of
+Subject: [PATCH 158/323] locking/rtmutex: Move rt_mutex_init() outside of
  CONFIG_DEBUG_RT_MUTEXES
 X-NVConfidentiality: public
 
@@ -19,7 +19,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 3 insertions(+), 9 deletions(-)
 
 diff --git a/include/linux/rtmutex.h b/include/linux/rtmutex.h
-index 88a0ba806066..2dc10b582d4a 100644
+index 88a0ba806066b..2dc10b582d4ae 100644
 --- a/include/linux/rtmutex.h
 +++ b/include/linux/rtmutex.h
 @@ -43,6 +43,7 @@ struct hrtimer_sleeper;

@@ -1,7 +1,7 @@
-From 9c42cf8064ebed33a9792dbf984ff9be3733b95d Mon Sep 17 00:00:00 2001
+From e9889514348670dd8264a4272fae5e33dd29aa78 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:13 +0200
-Subject: [PATCH 016/322] sched: Fix migrate_disable() vs rt/dl balancing
+Subject: [PATCH 016/323] sched: Fix migrate_disable() vs rt/dl balancing
 X-NVConfidentiality: public
 
 In order to minimize the interference of migrate_disable() on lower
@@ -35,7 +35,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  6 files changed, 186 insertions(+), 48 deletions(-)
 
 diff --git a/include/linux/preempt.h b/include/linux/preempt.h
-index 97ba7c920653..8b43922e65df 100644
+index 97ba7c920653d..8b43922e65dfe 100644
 --- a/include/linux/preempt.h
 +++ b/include/linux/preempt.h
 @@ -325,24 +325,28 @@ static inline void preempt_notifier_init(struct preempt_notifier *notifier,
@@ -86,7 +86,7 @@ index 97ba7c920653..8b43922e65df 100644
   *
   * The reason we have it anyway.
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 83447024a7ea..343d2f13345a 100644
+index 5b5c194f5a62d..7ca1f3e740ddd 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -728,8 +728,9 @@ struct task_struct {
@@ -101,7 +101,7 @@ index 83447024a7ea..343d2f13345a 100644
  #ifdef CONFIG_PREEMPT_RCU
  	int				rcu_read_lock_nesting;
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 7124abdb3184..c93059871a85 100644
+index 1f90e339f1abe..2dc8310e9e525 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1777,11 +1777,6 @@ void migrate_enable(void)
@@ -214,10 +214,10 @@ index 7124abdb3184..c93059871a85 100644
  {
  	return false;
 diff --git a/kernel/sched/deadline.c b/kernel/sched/deadline.c
-index 0510ca205ad1..5ca7a8031fd9 100644
+index 94977a6ced8b8..7cf3248894a98 100644
 --- a/kernel/sched/deadline.c
 +++ b/kernel/sched/deadline.c
-@@ -2138,6 +2138,9 @@ static int push_dl_task(struct rq *rq)
+@@ -2139,6 +2139,9 @@ static int push_dl_task(struct rq *rq)
  		return 0;
  
  retry:
@@ -227,7 +227,7 @@ index 0510ca205ad1..5ca7a8031fd9 100644
  	if (WARN_ON(next_task == rq->curr))
  		return 0;
  
-@@ -2215,7 +2218,7 @@ static void push_dl_tasks(struct rq *rq)
+@@ -2216,7 +2219,7 @@ static void push_dl_tasks(struct rq *rq)
  static void pull_dl_task(struct rq *this_rq)
  {
  	int this_cpu = this_rq->cpu, cpu;
@@ -236,7 +236,7 @@ index 0510ca205ad1..5ca7a8031fd9 100644
  	bool resched = false;
  	struct rq *src_rq;
  	u64 dmin = LONG_MAX;
-@@ -2245,6 +2248,7 @@ static void pull_dl_task(struct rq *this_rq)
+@@ -2246,6 +2249,7 @@ static void pull_dl_task(struct rq *this_rq)
  			continue;
  
  		/* Might drop this_rq->lock */
@@ -244,7 +244,7 @@ index 0510ca205ad1..5ca7a8031fd9 100644
  		double_lock_balance(this_rq, src_rq);
  
  		/*
-@@ -2276,17 +2280,27 @@ static void pull_dl_task(struct rq *this_rq)
+@@ -2277,17 +2281,27 @@ static void pull_dl_task(struct rq *this_rq)
  					   src_rq->curr->dl.deadline))
  				goto skip;
  
@@ -278,7 +278,7 @@ index 0510ca205ad1..5ca7a8031fd9 100644
  	}
  
  	if (resched)
-@@ -2535,6 +2549,7 @@ const struct sched_class dl_sched_class
+@@ -2548,6 +2562,7 @@ const struct sched_class dl_sched_class
  	.rq_online              = rq_online_dl,
  	.rq_offline             = rq_offline_dl,
  	.task_woken		= task_woken_dl,
@@ -287,7 +287,7 @@ index 0510ca205ad1..5ca7a8031fd9 100644
  
  	.task_tick		= task_tick_dl,
 diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
-index f91339c0dee8..c25e35f41555 100644
+index 95c07ef87ce17..c916dbc2a0165 100644
 --- a/kernel/sched/rt.c
 +++ b/kernel/sched/rt.c
 @@ -1873,7 +1873,7 @@ static struct task_struct *pick_next_pushable_task(struct rq *rq)
@@ -427,7 +427,7 @@ index f91339c0dee8..c25e35f41555 100644
  
  	.task_tick		= task_tick_rt,
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index b302284734fe..8678dbd18028 100644
+index 2af7cb9e85b0e..103b3b0545833 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
 @@ -1062,6 +1062,8 @@ struct rq {

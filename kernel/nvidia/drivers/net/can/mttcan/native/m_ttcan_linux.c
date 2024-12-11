@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2015-2024, NVIDIA CORPORATION. All rights reserved.
  *
  * References are taken from "Bosch C_CAN controller" at
  * "drivers/net/can/c_can/c_can.c"
@@ -489,7 +489,8 @@ static int mttcan_state_change(struct net_device *dev,
 		 */
 		ttcan_set_intrpts(priv->ttcan, 0);
 		priv->can.can_stats.bus_off++;
-
+		priv->ttcan->tx_object = 0;
+		netif_stop_queue(dev);
 		netif_carrier_off(dev);
 
 		if (priv->can.restart_ms)
@@ -1098,6 +1099,7 @@ restart:
 	priv->can.can_stats.restarts++;
 
 	mttcan_start(dev);
+	netif_start_queue(dev);
 	netif_carrier_on(dev);
 }
 

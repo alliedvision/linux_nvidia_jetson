@@ -657,3 +657,9 @@ bool arch_is_rethunk(struct symbol *sym)
 	       !strcmp(sym->name, "srso_safe_ret") ||
 	       !strcmp(sym->name, "retbleed_return_thunk");
 }
+
+bool arch_is_embedded_insn(struct symbol *sym)
+{
+	return !strcmp(sym->name, "retbleed_return_thunk") ||
+	       !strcmp(sym->name, "srso_safe_ret");
+}

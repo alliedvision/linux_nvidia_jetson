@@ -1,7 +1,7 @@
-From acf6df24dc8d1aea7aa29e9857ef01b548a2291b Mon Sep 17 00:00:00 2001
+From b4aebe3a333344af602a495e01b183994a142316 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:00 +0200
-Subject: [PATCH 003/322] sched: Fix balance_callback()
+Subject: [PATCH 003/323] sched: Fix balance_callback()
 X-NVConfidentiality: public
 
 The intent of balance_callback() has always been to delay executing
@@ -29,7 +29,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 78 insertions(+), 44 deletions(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 4261a31d8d7e..539cc07be6dd 100644
+index ff020901a40fa..7c22c0ca23f91 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -3511,6 +3511,69 @@ static inline void finish_task(struct task_struct *prev)
@@ -199,7 +199,7 @@ index 4261a31d8d7e..539cc07be6dd 100644
  	struct rq_flags rf;
  	int reset_on_fork;
  	int queue_flags = DEQUEUE_SAVE | DEQUEUE_MOVE | DEQUEUE_NOCLOCK;
-@@ -5461,6 +5491,7 @@ static int __sched_setscheduler(struct task_struct *p,
+@@ -5468,6 +5498,7 @@ static int __sched_setscheduler(struct task_struct *p,
  
  	/* Avoid rq from going away on us: */
  	preempt_disable();
@@ -207,7 +207,7 @@ index 4261a31d8d7e..539cc07be6dd 100644
  	task_rq_unlock(rq, p, &rf);
  
  	if (pi) {
-@@ -5469,7 +5500,7 @@ static int __sched_setscheduler(struct task_struct *p,
+@@ -5477,7 +5508,7 @@ static int __sched_setscheduler(struct task_struct *p,
  	}
  
  	/* Run balance callbacks after we've adjusted the PI chain: */
@@ -217,7 +217,7 @@ index 4261a31d8d7e..539cc07be6dd 100644
  
  	return 0;
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index 8ca08e5b8e4a..e42261988bf7 100644
+index a17d81d6b513e..6d9d5bdf4d2dc 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
 @@ -1226,6 +1226,9 @@ static inline void rq_pin_lock(struct rq *rq, struct rq_flags *rf)

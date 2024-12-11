@@ -1,7 +1,7 @@
-From fa183099b4f6c59ed12119d055ae3b49b8f92ae2 Mon Sep 17 00:00:00 2001
+From 7cfd9ba022f4f4275ff6a5dc8fc89997581bd007 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:45 +0100
-Subject: [PATCH 056/322] highmem: Remove kmap_atomic_prot()
+Subject: [PATCH 056/323] highmem: Remove kmap_atomic_prot()
 X-NVConfidentiality: public
 
 No more users.
@@ -13,7 +13,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+), 12 deletions(-)
 
 diff --git a/include/linux/highmem-internal.h b/include/linux/highmem-internal.h
-index 3590af5aad96..bd15bf9164c2 100644
+index 3590af5aad96c..bd15bf9164c23 100644
 --- a/include/linux/highmem-internal.h
 +++ b/include/linux/highmem-internal.h
 @@ -88,16 +88,11 @@ static inline void __kunmap_local(void *vaddr)

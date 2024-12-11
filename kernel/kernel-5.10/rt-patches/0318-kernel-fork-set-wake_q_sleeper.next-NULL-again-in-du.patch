@@ -1,7 +1,7 @@
-From a439084a36c8bf550e71771bf908aadbe3cb9746 Mon Sep 17 00:00:00 2001
+From 51fc2ca5a6732f8e16c0f6819e37f0100afa8415 Mon Sep 17 00:00:00 2001
 From: Steffen Dirkwinkel <s.dirkwinkel@beckhoff.com>
 Date: Mon, 20 Mar 2023 09:03:47 +0100
-Subject: [PATCH 318/322] kernel: fork: set wake_q_sleeper.next=NULL again in
+Subject: [PATCH 318/323] kernel: fork: set wake_q_sleeper.next=NULL again in
  dup_task_struct
 X-NVConfidentiality: public
 
@@ -45,10 +45,10 @@ Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/kernel/fork.c b/kernel/fork.c
-index b889bcd22e7b..34a44b7b4a71 100644
+index 4033c28fa7339..201a33604478a 100644
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
-@@ -953,6 +953,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+@@ -961,6 +961,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
  	tsk->splice_pipe = NULL;
  	tsk->task_frag.page = NULL;
  	tsk->wake_q.next = NULL;

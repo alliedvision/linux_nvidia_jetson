@@ -115,6 +115,10 @@ void configure_txpower_track(void *dm_void, struct txpwrtrack_cfg *config)
 		configure_txpower_track_8814b(config);
 #endif
 
+#if RTL8723F_SUPPORT
+	if (dm->support_ic_type == ODM_RTL8723F)
+		configure_txpower_track_8723f(config);
+#endif
 
 }
 
@@ -788,7 +792,7 @@ void odm_txpowertracking_callback_thermal_meter(void *adapter)
 
 	/* Wait sacn to do IQK by RF Jenyu*/
 	if (!(*dm->is_scan_in_process) && !iqk_info->rfk_forbidden &&
-	    !cali_info->is_iqk_in_progress && (dm->is_linked || *dm->mp_mode)) {
+	    !cali_info->is_iqk_in_progress && dm->is_linked) {
 		if (!(dm->support_ic_type & ODM_RTL8723B)) {
 			/*Delta temperature is equal or larger than 20 Celsius*/
 			/*When threshold is 8*/
@@ -848,7 +852,7 @@ void odm_txpowertracking_callback_thermal_meter(void *adapter)
 	cali_info->tx_powercount = 0;
 }
 
-#if (RTL8822C_SUPPORT == 1 || RTL8814B_SUPPORT == 1)
+#if (RTL8822C_SUPPORT == 1 || RTL8814B_SUPPORT == 1  || RTL8723F_SUPPORT == 1)
 void
 odm_txpowertracking_new_callback_thermal_meter(void *dm_void)
 {
@@ -860,7 +864,7 @@ odm_txpowertracking_new_callback_thermal_meter(void *dm_void)
 	u8 thermal_value[MAX_RF_PATH] = {0}, delta[MAX_RF_PATH] = {0};
 	u8 delta_swing_table_idx_tup[DELTA_SWINGIDX_SIZE] = {0};
 	u8 delta_swing_table_idx_tdown[DELTA_SWINGIDX_SIZE] = {0};
-	u8 delta_LCK = 0, delta_IQK = 0, delta_tssi = 0, i = 0, j = 0, p;
+	u8 delta_LCK = 0, delta_IQK = 0, i = 0, j = 0, p;
 	u8 thermal_value_avg_count[MAX_RF_PATH] = {0};
 	u32 thermal_value_avg[MAX_RF_PATH] = {0};
 	s8 thermal_value_temp[MAX_RF_PATH] = {0};
@@ -958,17 +962,6 @@ odm_txpowertracking_new_callback_thermal_meter(void *dm_void)
 		delta[j] = (thermal_value[j] > cali_info->thermal_value_path[j]) ? (thermal_value[j] - cali_info->thermal_value_path[j]) : (cali_info->thermal_value_path[j] - thermal_value[j]);
 		delta_LCK = (thermal_value[0] > cali_info->thermal_value_lck) ? (thermal_value[0] - cali_info->thermal_value_lck) : (cali_info->thermal_value_lck - thermal_value[0]);
 		delta_IQK = (thermal_value[0] > cali_info->thermal_value_iqk) ? (thermal_value[0] - cali_info->thermal_value_iqk) : (cali_info->thermal_value_iqk - thermal_value[0]);
-	}
-
-	RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] thermal_value[0]=%d tssi->tssi_thermal[0]=%d\n",
-		thermal_value[0], tssi->tssi_thermal[0]);
-
-	delta_tssi = (thermal_value[0] > tssi->tssi_thermal[0]) ? (thermal_value[0] - tssi->tssi_thermal[0]) : (tssi->tssi_thermal[0] - thermal_value[0]);
-	if (delta_tssi >= 8) {
-		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] delta_tssi >= 8 !!!!!!  thermal_value[0]=%d tssi->tssi_thermal[0]=%d\n",
-			thermal_value[0], tssi->tssi_thermal[0]);
-		tssi->tssi_thermal[0] = thermal_value[0];
-		tssi->retry_sacan_tssi = 1;
 	}
 
 	/*4 6. If necessary, do LCK.*/

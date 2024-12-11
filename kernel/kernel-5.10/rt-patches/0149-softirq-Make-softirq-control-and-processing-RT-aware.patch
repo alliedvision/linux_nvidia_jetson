@@ -1,7 +1,7 @@
-From 28565620306bbae033e1b4fb98becb71ed10542e Mon Sep 17 00:00:00 2001
+From fe8d092f1744a99c924b558c9721c46fb5cd474a Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 9 Mar 2021 09:55:56 +0100
-Subject: [PATCH 149/322] softirq: Make softirq control and processing RT aware
+Subject: [PATCH 149/323] softirq: Make softirq control and processing RT aware
 X-NVConfidentiality: public
 
 Provide a local lock based serialization for soft interrupts on RT which
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 182 insertions(+), 8 deletions(-)
 
 diff --git a/include/linux/bottom_half.h b/include/linux/bottom_half.h
-index a19519f4241d..e4dd613a070e 100644
+index a19519f4241dc..e4dd613a070e3 100644
 --- a/include/linux/bottom_half.h
 +++ b/include/linux/bottom_half.h
 @@ -4,7 +4,7 @@
@@ -34,7 +34,7 @@ index a19519f4241d..e4dd613a070e 100644
  #else
  static __always_inline void __local_bh_disable_ip(unsigned long ip, unsigned int cnt)
 diff --git a/kernel/softirq.c b/kernel/softirq.c
-index 87fac6ac0c32..ed13f6097de8 100644
+index 87fac6ac0c32e..ed13f6097de89 100644
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
 @@ -13,6 +13,7 @@

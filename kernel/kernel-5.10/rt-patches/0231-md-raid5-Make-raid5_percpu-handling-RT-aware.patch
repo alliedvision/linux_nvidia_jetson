@@ -1,7 +1,7 @@
-From 26219f2d74f6ff442ec5f7f252a4218b1e18e6d6 Mon Sep 17 00:00:00 2001
+From 9aedd4b0185748493736b3be0fe9d50b1fd0d4a4 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 6 Apr 2010 16:51:31 +0200
-Subject: [PATCH 231/322] md: raid5: Make raid5_percpu handling RT aware
+Subject: [PATCH 231/323] md: raid5: Make raid5_percpu handling RT aware
 X-NVConfidentiality: public
 
 __raid_run_ops() disables preemption with get_cpu() around the access
@@ -20,7 +20,7 @@ Tested-by: Udo van den Heuvel <udovdh@xs4all.nl>
  2 files changed, 6 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/md/raid5.c b/drivers/md/raid5.c
-index 9f114b9d8dc6..7e0eb8defeaf 100644
+index 9f114b9d8dc6b..7e0eb8defeafc 100644
 --- a/drivers/md/raid5.c
 +++ b/drivers/md/raid5.c
 @@ -2218,8 +2218,9 @@ static void raid_run_ops(struct stripe_head *sh, unsigned long ops_request)
@@ -53,7 +53,7 @@ index 9f114b9d8dc6..7e0eb8defeaf 100644
  }
  
 diff --git a/drivers/md/raid5.h b/drivers/md/raid5.h
-index 5c05acf20e1f..665fe138ab4f 100644
+index 5c05acf20e1f2..665fe138ab4f7 100644
 --- a/drivers/md/raid5.h
 +++ b/drivers/md/raid5.h
 @@ -635,6 +635,7 @@ struct r5conf {

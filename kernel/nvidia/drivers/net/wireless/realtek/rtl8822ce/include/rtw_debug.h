@@ -284,7 +284,6 @@ extern uint rtw_drv_log_level;
 
 void dump_drv_version(void *sel);
 void dump_log_level(void *sel);
-void dump_drv_cfg(void *sel);
 
 #ifdef CONFIG_SDIO_HCI
 void sd_f0_reg_dump(void *sel, _adapter *adapter);
@@ -306,15 +305,12 @@ void dump_tx_rate_bmp(void *sel, struct dvobj_priv *dvobj);
 void dump_adapters_status(void *sel, struct dvobj_priv *dvobj);
 
 struct sec_cam_ent;
+#if defined(CONFIG_RTW_DEBUG) || defined(CONFIG_PROC_DEBUG)
 void dump_sec_cam_ent(void *sel, struct sec_cam_ent *ent, int id);
 void dump_sec_cam_ent_title(void *sel, u8 has_id);
+#endif
 void dump_sec_cam(void *sel, _adapter *adapter);
 void dump_sec_cam_cache(void *sel, _adapter *adapter);
-
-#ifdef CONFIG_ALIBABA_ZEROCONFIG
-int proc_get_zeroconf_tgt_macaddr(struct seq_file *m, void *v);
-ssize_t proc_set_zeroconf_tgt_macaddr(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
-#endif
 
 bool rtw_fwdl_test_trigger_chksum_fail(void);
 bool rtw_fwdl_test_trigger_wintint_rdy_fail(void);
@@ -332,7 +328,7 @@ u16 rtw_ap_linking_test_force_asoc_fail(void);
 ssize_t proc_set_write_reg(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 int proc_get_read_reg(struct seq_file *m, void *v);
 ssize_t proc_set_read_reg(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
-
+void dump_drv_cfg(void *sel);
 int proc_get_fwstate(struct seq_file *m, void *v);
 int proc_get_sec_info(struct seq_file *m, void *v);
 int proc_get_mlmext_state(struct seq_file *m, void *v);
@@ -341,12 +337,11 @@ int proc_get_roam_flags(struct seq_file *m, void *v);
 ssize_t proc_set_roam_flags(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 int proc_get_roam_param(struct seq_file *m, void *v);
 ssize_t proc_set_roam_param(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+int proc_get_roam_param_int(struct seq_file *m, void *v);
+ssize_t proc_set_roam_param_int(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 ssize_t proc_set_roam_tgt_addr(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+int proc_get_roam_tgt_addr(struct seq_file *m, void *v);
 #endif /* CONFIG_LAYER2_ROAMING */
-#ifdef CONFIG_RTW_80211R
-int proc_get_ft_flags(struct seq_file *m, void *v);
-ssize_t proc_set_ft_flags(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
-#endif
 int proc_get_qos_option(struct seq_file *m, void *v);
 int proc_get_ht_option(struct seq_file *m, void *v);
 int proc_get_rf_info(struct seq_file *m, void *v);
@@ -395,6 +390,8 @@ ssize_t proc_set_ap_linking_test(struct file *file, const char __user *buffer, s
 
 int proc_get_rx_stat(struct seq_file *m, void *v);
 int proc_get_tx_stat(struct seq_file *m, void *v);
+int proc_get_sta_tx_stat(struct seq_file *m, void *v);
+ssize_t proc_set_sta_tx_stat(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 #ifdef CONFIG_AP_MODE
 int proc_get_all_sta_info(struct seq_file *m, void *v);
 #endif /* CONFIG_AP_MODE */
@@ -448,6 +445,10 @@ ssize_t proc_set_ldpc_cap(struct file *file, const char __user *buffer, size_t c
 int proc_get_txbf_cap(struct seq_file *m, void *v);
 ssize_t proc_set_txbf_cap(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 #endif
+#ifdef CONFIG_SDIO_TX_ENABLE_AVAL_INT
+int proc_get_tx_aval_th(struct seq_file *m, void *v);
+ssize_t proc_set_tx_aval_th(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+#endif /*CONFIG_SDIO_TX_ENABLE_AVAL_INT*/
 int proc_get_rx_ampdu_factor(struct seq_file *m, void *v);
 ssize_t proc_set_rx_ampdu_factor(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 
@@ -469,6 +470,11 @@ int proc_get_tx_amsdu_rate(struct seq_file *m, void *v);
 ssize_t proc_set_tx_amsdu_rate(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 #endif
 #endif /* CONFIG_80211N_HT */
+
+#ifdef CONFIG_80211AC_VHT
+int proc_get_vht_24g_enable(struct seq_file *m, void *v);
+ssize_t proc_set_vht_24g_enable(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+#endif
 
 ssize_t proc_set_dyn_rrsr(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 int proc_get_dyn_rrsr(struct seq_file *m, void *v);
@@ -520,6 +526,7 @@ ssize_t proc_set_pci_bridge_conf_space(struct file *file, const char __user *buf
 #ifdef DBG_TXBD_DESC_DUMP
 int proc_get_tx_ring_ext(struct seq_file *m, void *v);
 ssize_t proc_set_tx_ring_ext(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+int core_get_tx_ring_ext(_adapter *padapter);
 #endif
 #endif
 
@@ -534,7 +541,28 @@ int proc_get_wakeup_event(struct seq_file *m, void *v);
 ssize_t proc_set_wakeup_event(struct file *file, const char __user *buffer,
 		size_t count, loff_t *pos, void *data);
 int proc_get_wakeup_reason(struct seq_file *m, void *v);
+#ifdef CONFIG_WOW_KEEP_ALIVE_PATTERN
+int proc_dump_wow_keep_alive_info(struct seq_file *m, void *v);
+#endif /*CONFIG_WOW_KEEP_ALIVE_PATTERN*/
 #endif
+
+#ifdef CONFIG_WAR_OFFLOAD
+int proc_get_war_offload_enable(struct seq_file *m, void *v);
+ssize_t proc_set_war_offload_enable(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+int proc_get_war_offload_ipv4_addr(struct seq_file *m, void *v);
+ssize_t proc_set_war_offload_ipv4_addr(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+int proc_get_war_offload_ipv6_addr(struct seq_file *m, void *v);
+ssize_t proc_set_war_offload_ipv6_addr(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+int proc_get_war_offload_mdns_domain_name(struct seq_file *m, void *v);
+ssize_t proc_set_war_offload_mdns_domain_name(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+int proc_get_war_offload_mdns_machine_name(struct seq_file *m, void *v);
+ssize_t proc_set_war_offload_mdns_machine_name(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+int proc_get_war_offload_mdns_txt_rsp(struct seq_file *m, void *v);
+ssize_t proc_set_war_offload_mdns_txt_rsp(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+int proc_get_war_offload_mdns_service_info(struct seq_file *m, void *v);
+ssize_t proc_set_war_offload_mdns_service_info(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+#endif /* CONFIG_WAR_OFFLOAD */
+
 
 #ifdef CONFIG_GPIO_WAKEUP
 int proc_get_wowlan_gpio_info(struct seq_file *m, void *v);
@@ -566,6 +594,11 @@ int proc_get_tdls_info(struct seq_file *m, void *v);
 
 int proc_get_monitor(struct seq_file *m, void *v);
 ssize_t proc_set_monitor(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+
+#ifdef RTW_SIMPLE_CONFIG
+int proc_get_simple_config(struct seq_file *m, void *v);
+ssize_t proc_set_simple_config(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+#endif
 
 #ifdef DBG_XMIT_BLOCK
 int proc_get_xmit_block(struct seq_file *m, void *v);
@@ -652,9 +685,10 @@ int proc_get_smps(struct seq_file *m, void *v);
 int proc_get_defs_param(struct seq_file *m, void *v);
 ssize_t proc_set_defs_param(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 
-int proc_get_shift_rxagc(struct seq_file *m, void *v);
-ssize_t proc_set_shift_rxagc(struct file *file, const char __user *buffer,
-	size_t count, loff_t *pos, void *data);
+#if defined(CONFIG_CONCURRENT_MODE) && defined(CONFIG_AP_MODE)
+ssize_t proc_set_ap_csa_cnt(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+int proc_get_ap_csa_cnt(struct seq_file *m, void *v);
+#endif
 
 #define _drv_always_		1
 #define _drv_emerg_			2

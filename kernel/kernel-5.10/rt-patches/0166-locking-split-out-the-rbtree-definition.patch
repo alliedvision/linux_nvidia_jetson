@@ -1,7 +1,7 @@
-From 771ab20c8377383f951551f5b229e04f61c98148 Mon Sep 17 00:00:00 2001
+From 0f92b3b79c0278cff9dd59b80adb051876467f2a Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 14 Aug 2020 17:08:41 +0200
-Subject: [PATCH 166/322] locking: split out the rbtree definition
+Subject: [PATCH 166/323] locking: split out the rbtree definition
 X-NVConfidentiality: public
 
 rtmutex.h needs the definition for rb_root_cached. By including kernel.h
@@ -19,7 +19,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  create mode 100644 include/linux/rbtree_type.h
 
 diff --git a/include/linux/rbtree.h b/include/linux/rbtree.h
-index d7db17996322..c33b0e16d04b 100644
+index d7db179963221..c33b0e16d04b4 100644
 --- a/include/linux/rbtree.h
 +++ b/include/linux/rbtree.h
 @@ -19,19 +19,9 @@
@@ -67,7 +67,7 @@ index d7db17996322..c33b0e16d04b 100644
  /* Same as rb_first(), but O(1) */
 diff --git a/include/linux/rbtree_type.h b/include/linux/rbtree_type.h
 new file mode 100644
-index 000000000000..77a89dd2c7c6
+index 0000000000000..77a89dd2c7c66
 --- /dev/null
 +++ b/include/linux/rbtree_type.h
 @@ -0,0 +1,31 @@
@@ -103,7 +103,7 @@ index 000000000000..77a89dd2c7c6
 +
 +#endif
 diff --git a/include/linux/rtmutex.h b/include/linux/rtmutex.h
-index add1dab27df5..b828b938c876 100644
+index add1dab27df52..b828b938c8769 100644
 --- a/include/linux/rtmutex.h
 +++ b/include/linux/rtmutex.h
 @@ -14,7 +14,7 @@

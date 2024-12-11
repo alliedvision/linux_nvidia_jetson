@@ -17,6 +17,7 @@ dtb-$(BUILD_ENABLE) += tegra234-p3767-0001-p3509-a02.dtb
 dtb-$(BUILD_ENABLE) += tegra234-p3767-0003-p3509-a02.dtb
 dtb-$(BUILD_ENABLE) += tegra234-p3767-0004-p3509-a02.dtb
 dtb-$(BUILD_ENABLE) += tegra234-p3767-0000-p3768-0000-a0.dtb
+dtb-$(BUILD_ENABLE) += tegra234-p3767-0000-px1-p3768-0000-a0.dtb
 dtb-$(BUILD_ENABLE) += tegra234-p3767-0000-as-p3767-0001-p3768-0000-a0.dtb
 dtb-$(BUILD_ENABLE) += tegra234-p3767-0000-as-p3767-0003-p3768-0000-a0.dtb
 dtb-$(BUILD_ENABLE) += tegra234-p3767-0000-as-p3767-0004-p3768-0000-a0.dtb

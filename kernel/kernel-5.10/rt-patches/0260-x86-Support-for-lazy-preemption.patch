@@ -1,7 +1,7 @@
-From fefc1ee721ae15be71051b00f9762d10c6d443e5 Mon Sep 17 00:00:00 2001
+From 320ce9b32cea3f89667a3278533b070c1d990c2b Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 1 Nov 2012 11:03:47 +0100
-Subject: [PATCH 260/322] x86: Support for lazy preemption
+Subject: [PATCH 260/323] x86: Support for lazy preemption
 X-NVConfidentiality: public
 
 Implement the x86 pieces for lazy preempt.
@@ -17,10 +17,10 @@ Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
  5 files changed, 48 insertions(+), 5 deletions(-)
 
 diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index c72d66a0e840..b9f68b01a8c8 100644
+index 9566d7fe3a0de..1af3f76862c7e 100644
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
-@@ -213,6 +213,7 @@ config X86
+@@ -214,6 +214,7 @@ config X86
  	select HAVE_PCI
  	select HAVE_PERF_REGS
  	select HAVE_PERF_USER_STACK_DUMP
@@ -29,7 +29,7 @@ index c72d66a0e840..b9f68b01a8c8 100644
  	select HAVE_POSIX_CPU_TIMERS_TASK_WORK
  	select HAVE_REGS_AND_STACK_ACCESS_API
 diff --git a/arch/x86/include/asm/preempt.h b/arch/x86/include/asm/preempt.h
-index 50e0c0ab7b97..afe37a8c6c24 100644
+index 50e0c0ab7b97b..afe37a8c6c248 100644
 --- a/arch/x86/include/asm/preempt.h
 +++ b/arch/x86/include/asm/preempt.h
 @@ -89,17 +89,48 @@ static __always_inline void __preempt_count_sub(int val)
@@ -83,7 +83,7 @@ index 50e0c0ab7b97..afe37a8c6c24 100644
  
  #ifdef CONFIG_PREEMPTION
 diff --git a/arch/x86/include/asm/thread_info.h b/arch/x86/include/asm/thread_info.h
-index 012c8ee93b67..d77e99ba7610 100644
+index 012c8ee93b67f..d77e99ba76102 100644
 --- a/arch/x86/include/asm/thread_info.h
 +++ b/arch/x86/include/asm/thread_info.h
 @@ -56,17 +56,24 @@ struct task_struct;
@@ -137,7 +137,7 @@ index 012c8ee93b67..d77e99ba7610 100644
  
  /*
 diff --git a/include/linux/entry-common.h b/include/linux/entry-common.h
-index 46c42479f950..b902af13d05f 100644
+index 46c42479f9501..b902af13d05fd 100644
 --- a/include/linux/entry-common.h
 +++ b/include/linux/entry-common.h
 @@ -67,9 +67,9 @@
@@ -154,7 +154,7 @@ index 46c42479f950..b902af13d05f 100644
  
  /**
 diff --git a/kernel/entry/common.c b/kernel/entry/common.c
-index f32250adb681..cdf97ea30b4c 100644
+index f32250adb6815..cdf97ea30b4c0 100644
 --- a/kernel/entry/common.c
 +++ b/kernel/entry/common.c
 @@ -157,7 +157,7 @@ static unsigned long exit_to_user_mode_loop(struct pt_regs *regs,

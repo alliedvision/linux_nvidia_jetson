@@ -1,7 +1,7 @@
-From 47d737df72201a1112f56335f4e163d8f6e62a47 Mon Sep 17 00:00:00 2001
+From ed6786d8572ba7cee4be981069ffbec4c01b0783 Mon Sep 17 00:00:00 2001
 From: "Ahmed S. Darwish" <a.darwish@linutronix.de>
 Date: Tue, 16 Mar 2021 11:56:30 +0100
-Subject: [PATCH 288/322] net: xfrm: Use sequence counter with associated
+Subject: [PATCH 288/323] net: xfrm: Use sequence counter with associated
  spinlock
 X-NVConfidentiality: public
 
@@ -26,10 +26,10 @@ Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/include/net/netns/xfrm.h b/include/net/netns/xfrm.h
-index 69e4161462fb..3168a358b222 100644
+index 7b87da22b2950..fef22e029c0d3 100644
 --- a/include/net/netns/xfrm.h
 +++ b/include/net/netns/xfrm.h
-@@ -76,7 +76,7 @@ struct netns_xfrm {
+@@ -77,7 +77,7 @@ struct netns_xfrm {
  	struct dst_ops		xfrm6_dst_ops;
  #endif
  	spinlock_t		xfrm_state_lock;

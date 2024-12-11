@@ -48,16 +48,34 @@
 #define MAX_RECVBUF_SZ_8822C	24576	/* 24k */
 
 /* TX BD */
-#define SET_TXBUFFER_DESC_LEN_WITH_OFFSET(__pTxDesc, __Offset, __Valeu) \
-	SET_BITS_TO_LE_4BYTE(__pTxDesc+(__Offset*8), 0, 16, __Valeu)
-#define SET_TXBUFFER_DESC_AMSDU_WITH_OFFSET(__pTxDesc, __Offset, __Valeu) \
-	SET_BITS_TO_LE_4BYTE(__pTxDesc+(__Offset*8), 31, 1, __Valeu)
-#define SET_TXBUFFER_DESC_ADD_LOW_WITH_OFFSET(__pTxDesc, __Offset, __Valeu) \
-	SET_BITS_TO_LE_4BYTE(__pTxDesc+(__Offset*8)+4, 0, 32, __Valeu)
+#ifdef CONFIG_64BIT_DMA
+#define SET_TXBUFFER_DESC_LEN_WITH_OFFSET(__pTxDesc, __Offset, __Value) \
+	SET_BITS_TO_LE_4BYTE(__pTxDesc+(__Offset*16), 0, 16, __Value)
+#define SET_TXBUFFER_DESC_AMSDU_WITH_OFFSET(__pTxDesc, __Offset, __Value) \
+	SET_BITS_TO_LE_4BYTE(__pTxDesc+(__Offset*16), 31, 1, __Value)
+#define SET_TXBUFFER_DESC_ADD_LOW_WITH_OFFSET(__pTxDesc, __Offset, __Value) \
+	SET_BITS_TO_LE_4BYTE(__pTxDesc+(__Offset*16)+4, 0, 32, __Value)
+#define SET_TXBUFFER_DESC_ADD_HIGH_WITH_OFFSET(__pTxDesc, __Offset, __Value) \
+	SET_BITS_TO_LE_4BYTE(__pTxDesc+(__Offset*16)+8, 0, 32, __Value)
+#else
+#define SET_TXBUFFER_DESC_LEN_WITH_OFFSET(__pTxDesc, __Offset, __Value) \
+	SET_BITS_TO_LE_4BYTE(__pTxDesc+(__Offset*8), 0, 16, __Value)
+#define SET_TXBUFFER_DESC_AMSDU_WITH_OFFSET(__pTxDesc, __Offset, __Value) \
+	SET_BITS_TO_LE_4BYTE(__pTxDesc+(__Offset*8), 31, 1, __Value)
+#define SET_TXBUFFER_DESC_ADD_LOW_WITH_OFFSET(__pTxDesc, __Offset, __Value) \
+	SET_BITS_TO_LE_4BYTE(__pTxDesc+(__Offset*8)+4, 0, 32, __Value)
+#define SET_TXBUFFER_DESC_ADD_HIGH_WITH_OFFSET(__pTxDesc, __Offset, __Value) 0
+#endif
 
 /* RX BD */
 #define SET_RX_BD_PHYSICAL_ADDR_LOW(__pRxBd, __Value) \
 	SET_BITS_TO_LE_4BYTE(__pRxBd + 0x04, 0, 32, __Value)
+#ifdef CONFIG_64BIT_DMA
+#define SET_RX_BD_PHYSICAL_ADDR_HIGH(__pRxBd, __Value) \
+	SET_BITS_TO_LE_4BYTE(__pRxBd + 0x08, 0, 32, __Value)
+#else
+#define SET_RX_BD_PHYSICAL_ADDR_HIGH(__pRxBd, __Value) 0
+#endif
 #define SET_RX_BD_RXBUFFSIZE(__pRxBd, __Value) \
 	SET_BITS_TO_LE_4BYTE(__pRxBd + 0x00, 0, 14, __Value)
 #define SET_RX_BD_LS(__pRxBd, __Value) \
@@ -101,6 +119,9 @@ void rtl8822ce_tx_ring_poll(PADAPTER Adapter, int prio);
 
 s32 rtl8822ce_mgnt_xmit(PADAPTER, struct xmit_frame *);
 s32 rtl8822ce_hal_xmit(PADAPTER, struct xmit_frame *);
+#ifdef CONFIG_RTW_MGMT_QUEUE
+s32 rtl8822ce_hal_mgmt_xmitframe_enqueue(PADAPTER, struct xmit_frame *);
+#endif
 s32 rtl8822ce_hal_xmitframe_enqueue(PADAPTER, struct xmit_frame *);
 
 #ifdef CONFIG_XMIT_THREAD_MODE
@@ -110,6 +131,7 @@ u32 InitMAC_TRXBD_8822CE(PADAPTER adapter);
 void rtl8822ce_reset_bd(_adapter *padapter);
 
 void rtl8822ce_xmitframe_resume(PADAPTER);
+void rtl8822ce_hci_flush(PADAPTER Adapter, u32 queue);
 
 /* rtl8822cs_recv.c */
 s32 rtl8822ce_init_recv_priv(PADAPTER);

@@ -1,7 +1,7 @@
-From 405c94fdad408eb4ee6c792254cabb5fec8e22bd Mon Sep 17 00:00:00 2001
+From a5ac69f040bd616c35202127c69cae038a612482 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Tue, 9 Mar 2021 09:42:08 +0100
-Subject: [PATCH 136/322] tasklets: Replace spin wait in tasklet_unlock_wait()
+Subject: [PATCH 136/323] tasklets: Replace spin wait in tasklet_unlock_wait()
 X-NVConfidentiality: public
 
 tasklet_unlock_wait() spin waits for TASKLET_STATE_RUN to be cleared. This
@@ -26,7 +26,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 20 insertions(+), 11 deletions(-)
 
 diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index fe085c46f210..c4fafbfa28a6 100644
+index fe085c46f2107..c4fafbfa28a6f 100644
 --- a/include/linux/interrupt.h
 +++ b/include/linux/interrupt.h
 @@ -664,17 +664,8 @@ static inline int tasklet_trylock(struct tasklet_struct *t)
@@ -50,7 +50,7 @@ index fe085c46f210..c4fafbfa28a6 100644
  /*
   * Do not use in new code. Waiting for tasklets from atomic contexts is
 diff --git a/kernel/softirq.c b/kernel/softirq.c
-index d5bfd5e661fc..06bca024ce45 100644
+index d5bfd5e661fcd..06bca024ce45b 100644
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
 @@ -25,6 +25,7 @@

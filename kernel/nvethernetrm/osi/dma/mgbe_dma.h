@@ -92,14 +92,10 @@
  * @brief Values defined for PBL settings
  * @{
  */
-/* Tx Queue size is 128KB */
-#define MGBE_TXQ_SIZE			131072U
 /* Rx Queue size is 192KB */
 #define MGBE_RXQ_SIZE			196608U
 /* MAX PBL value */
 #define MGBE_DMA_CHX_MAX_PBL		256U
 #define MGBE_DMA_CHX_MAX_PBL_VAL	0x200000U
-/* AXI Data width */
-#define MGBE_AXI_DATAWIDTH		128U
 /** @} */
 #endif

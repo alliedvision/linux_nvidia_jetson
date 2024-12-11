@@ -1,7 +1,7 @@
-From e524ec4d2a10ff6dbb690f3b856f7ca1204230cc Mon Sep 17 00:00:00 2001
+From 35c1046ce069f8b1d41d3b365107fb2280a4d266 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 9 Mar 2021 09:42:06 +0100
-Subject: [PATCH 134/322] tasklets: Provide tasklet_disable_in_atomic()
+Subject: [PATCH 134/323] tasklets: Provide tasklet_disable_in_atomic()
 X-NVConfidentiality: public
 
 Replacing the spin wait loops in tasklet_unlock_wait() with
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 22 insertions(+)
 
 diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index 75c4380afe9b..abba3eff4f86 100644
+index 75c4380afe9b5..abba3eff4f86a 100644
 --- a/include/linux/interrupt.h
 +++ b/include/linux/interrupt.h
 @@ -675,10 +675,21 @@ static inline void tasklet_unlock_wait(struct tasklet_struct *t)

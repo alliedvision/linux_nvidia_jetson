@@ -1,7 +1,7 @@
-From 12756b691e1052d1949bec089d683a27f339d9ab Mon Sep 17 00:00:00 2001
+From c10b7d5618c08413dae9d02078fdf098a6557af2 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 31 Oct 2012 12:04:11 +0100
-Subject: [PATCH 261/322] arm: Add support for lazy preemption
+Subject: [PATCH 261/323] arm: Add support for lazy preemption
 X-NVConfidentiality: public
 
 Implement the arm pieces for lazy preempt.
@@ -18,7 +18,7 @@ Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
  6 files changed, 25 insertions(+), 5 deletions(-)
 
 diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index c01251683018..ee2cbe8ad502 100644
+index c01251683018d..ee2cbe8ad502d 100644
 --- a/arch/arm/Kconfig
 +++ b/arch/arm/Kconfig
 @@ -107,6 +107,7 @@ config ARM
@@ -30,7 +30,7 @@ index c01251683018..ee2cbe8ad502 100644
  	select HAVE_REGS_AND_STACK_ACCESS_API
  	select HAVE_RSEQ
 diff --git a/arch/arm/include/asm/thread_info.h b/arch/arm/include/asm/thread_info.h
-index fcccf35f5cf9..3b981ad0c322 100644
+index fcccf35f5cf96..3b981ad0c3222 100644
 --- a/arch/arm/include/asm/thread_info.h
 +++ b/arch/arm/include/asm/thread_info.h
 @@ -46,6 +46,7 @@ struct cpu_context_save {
@@ -70,7 +70,7 @@ index fcccf35f5cf9..3b981ad0c322 100644
  
  #endif /* __KERNEL__ */
 diff --git a/arch/arm/kernel/asm-offsets.c b/arch/arm/kernel/asm-offsets.c
-index 70993af22d80..024c65c3a0f2 100644
+index 70993af22d80c..024c65c3a0f23 100644
 --- a/arch/arm/kernel/asm-offsets.c
 +++ b/arch/arm/kernel/asm-offsets.c
 @@ -43,6 +43,7 @@ int main(void)
@@ -82,7 +82,7 @@ index 70993af22d80..024c65c3a0f2 100644
    DEFINE(TI_TASK,		offsetof(struct thread_info, task));
    DEFINE(TI_CPU,		offsetof(struct thread_info, cpu));
 diff --git a/arch/arm/kernel/entry-armv.S b/arch/arm/kernel/entry-armv.S
-index 030351d169aa..d6086559168d 100644
+index 030351d169aac..d6086559168db 100644
 --- a/arch/arm/kernel/entry-armv.S
 +++ b/arch/arm/kernel/entry-armv.S
 @@ -206,11 +206,18 @@ __irq_svc:
@@ -123,7 +123,7 @@ index 030351d169aa..d6086559168d 100644
  
  __und_fault:
 diff --git a/arch/arm/kernel/entry-common.S b/arch/arm/kernel/entry-common.S
-index 9b3c737575e9..a30b1a1cc4d1 100644
+index 9b3c737575e91..a30b1a1cc4d18 100644
 --- a/arch/arm/kernel/entry-common.S
 +++ b/arch/arm/kernel/entry-common.S
 @@ -92,6 +92,7 @@ __ret_fast_syscall:
@@ -135,7 +135,7 @@ index 9b3c737575e9..a30b1a1cc4d1 100644
  ENDPROC(ret_fast_syscall)
  
 diff --git a/arch/arm/kernel/signal.c b/arch/arm/kernel/signal.c
-index a3a38d0a4c85..f04ccf19ab1f 100644
+index a3a38d0a4c853..f04ccf19ab1fd 100644
 --- a/arch/arm/kernel/signal.c
 +++ b/arch/arm/kernel/signal.c
 @@ -649,7 +649,8 @@ do_work_pending(struct pt_regs *regs, unsigned int thread_flags, int syscall)

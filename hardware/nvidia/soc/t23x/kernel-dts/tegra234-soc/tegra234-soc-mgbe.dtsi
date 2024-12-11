@@ -20,7 +20,7 @@
 
 / {
 	mgbe_vm_irq_config: mgbe-vm-irq-config {
-		nvidia,num-vm-irqs = <5>;
+		nvidia,num-vm-irqs = <4>;
 		vm_irq1 {
 			nvidia,num-vm-channels = <2>;
 			nvidia,vm-channels = <0 1>;
@@ -41,11 +41,6 @@
 			nvidia,vm-channels = <6 7>;
 			nvidia,vm-num = <3>;
 		};
-		vm_irq5 {
-			nvidia,num-vm-channels = <2>;
-			nvidia,vm-channels = <8 9>;
-			nvidia,vm-num = <4>;
-		};
 	};
 
 	ethernet@6810000 {
@@ -60,10 +55,9 @@
 				<0 386 0x4>,	/* vm1 */
 				<0 387 0x4>,	/* vm2 */
 				<0 388 0x4>,	/* vm3 */
-				<0 389 0x4>,	/* vm4 */
 				<0 390 0x4>,	/* MACsec non-secure intr */
 				<0 391 0x4>;	/* MACsec secure intr */
-		interrupt-names = "common", "vm0", "vm1", "vm2", "vm3", "vm4",
+		interrupt-names = "common", "vm0", "vm1", "vm2", "vm3",
 				  "macsec-ns-irq", "macsec-s-irq";
 		resets = <&bpmp_resets TEGRA234_RESET_MGBE0_MAC>,
 			 <&bpmp_resets TEGRA234_RESET_MGBE0_PCS>,
@@ -93,16 +87,16 @@
 #endif
 		iommus = <&smmu_niso0 TEGRA_SID_NISO0_MGBE>;
 		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_MGBEBA>;
-		nvidia,num-dma-chans = <10>;
-		nvidia,dma-chans = <0 1 2 3 4 5 6 7 8 9>;
-		nvidia,num-mtl-queues = <10>;
-		nvidia,mtl-queues = <0 1 2 3 4 5 6 7 8 9>;
-		nvidia,tc-mapping = <0 1 2 3 4 5 6 7 0 1>;
+		nvidia,num-dma-chans = <8>;
+		nvidia,dma-chans = <0 1 2 3 4 5 6 7>;
+		nvidia,num-mtl-queues = <8>;
+		nvidia,mtl-queues = <0 1 2 3 4 5 6 7>;
+		nvidia,tc-mapping = <0 1 2 3 4 5 6 7>;
 		/* Residual Queue can be any valid queue except RxQ0 */
 		nvidia,residual-queue = <1>;
 		nvidia,rxq_enable_ctrl = <2 2 2 2 2 2 2 2 2 2>;
 		nvidia,vm-irq-config = <&mgbe_vm_irq_config>;
-		nvidia,tx-queue-prio = <0 1 2 3 4 5 6 7 0 0>;
+		nvidia,tx-queue-prio = <0 1 2 3 4 5 6 7>;
 		nvidia,rx-queue-prio = <0x1 0x2 0x4 0x8 0x10 0x20 0x40 0x80 0x0 0x0>;
 		status = "disabled";
 		nvidia,dcs-enable = <0x1>;
@@ -111,8 +105,8 @@
 		nvidia,tx_usecs = <256>;
 		nvidia,tx_frames = <16>;
 		nvidia,promisc_mode = <1>;
-		nvidia,slot_num_check = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
-		nvidia,slot_intvl_vals = <0x0 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D>;
+		nvidia,slot_num_check = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
+		nvidia,slot_intvl_vals = <0x0 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D>;
 		nvidia,ptp_ref_clock_speed = <312500000>;
 		nvidia,instance_id = <0>; /* MGBE0 instance */
 		nvidia,ptp-rx-queue = <3>;
@@ -133,10 +127,9 @@
 				<0 394 0x4>,	/* vm1 */
 				<0 395 0x4>,	/* vm2 */
 				<0 396 0x4>,	/* vm3 */
-				<0 397 0x4>,	/* vm4 */
 				<0 398 0x4>,	/* MACsec non-secure intr */
 				<0 399 0x4>;	/* MACsec secure intr */
-		interrupt-names = "common", "vm0", "vm1", "vm2", "vm3", "vm4",
+		interrupt-names = "common", "vm0", "vm1", "vm2", "vm3",
 				  "macsec-ns-irq", "macsec-s-irq";
 		resets = <&bpmp_resets TEGRA234_RESET_MGBE1_MAC>,
 			 <&bpmp_resets TEGRA234_RESET_MGBE1_PCS>,
@@ -166,16 +159,16 @@
 #endif
 		iommus = <&smmu_niso0 TEGRA_SID_NISO0_MGBE_VF1>;
 		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_MGBEBB>;
-		nvidia,num-dma-chans = <10>;
-		nvidia,dma-chans = <0 1 2 3 4 5 6 7 8 9>;
-		nvidia,num-mtl-queues = <10>;
-		nvidia,mtl-queues = <0 1 2 3 4 5 6 7 8 9>;
-		nvidia,tc-mapping = <0 1 2 3 4 5 6 7 0 1>;
+		nvidia,num-dma-chans = <8>;
+		nvidia,dma-chans = <0 1 2 3 4 5 6 7>;
+		nvidia,num-mtl-queues = <8>;
+		nvidia,mtl-queues = <0 1 2 3 4 5 6 7>;
+		nvidia,tc-mapping = <0 1 2 3 4 5 6 7>;
 		/* Residual Queue can be any valid queue except RxQ0 */
 		nvidia,residual-queue = <1>;
 		nvidia,rxq_enable_ctrl = <2 2 2 2 2 2 2 2 2 2>;
 		nvidia,vm-irq-config = <&mgbe_vm_irq_config>;
-		nvidia,tx-queue-prio = <0 1 2 3 4 5 6 7 0 0>;
+		nvidia,tx-queue-prio = <0 1 2 3 4 5 6 7>;
 		nvidia,rx-queue-prio = <0x1 0x2 0x4 0x8 0x10 0x20 0x40 0x80 0x0 0x0>;
 		status = "disabled";
 		nvidia,dcs-enable = <0x1>;
@@ -184,8 +177,8 @@
 		nvidia,tx_usecs = <256>;
 		nvidia,tx_frames = <16>;
 		nvidia,promisc_mode = <1>;
-		nvidia,slot_num_check = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
-		nvidia,slot_intvl_vals = <0x0 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D>;
+		nvidia,slot_num_check = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
+		nvidia,slot_intvl_vals = <0x0 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D>;
 		nvidia,ptp_ref_clock_speed = <312500000>;
 		nvidia,instance_id = <1>; /* MGBE1 instance */
 		nvidia,ptp-rx-queue = <3>;
@@ -206,10 +199,9 @@
 				<0 402 0x4>,	/* vm1 */
 				<0 403 0x4>,	/* vm2 */
 				<0 404 0x4>,	/* vm3 */
-				<0 405 0x4>,	/* vm4 */
 				<0 406 0x4>,	/* MACsec non-secure intr */
 				<0 407 0x4>;	/* MACsec secure intr */
-		interrupt-names = "common", "vm0", "vm1", "vm2", "vm3", "vm4",
+		interrupt-names = "common", "vm0", "vm1", "vm2", "vm3",
 				  "macsec-ns-irq", "macsec-s-irq";
 		resets = <&bpmp_resets TEGRA234_RESET_MGBE2_MAC>,
 			 <&bpmp_resets TEGRA234_RESET_MGBE2_PCS>,
@@ -239,16 +231,16 @@
 #endif
 		iommus = <&smmu_niso0 TEGRA_SID_NISO0_MGBE_VF2>;
 		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_MGBEBC>;
-		nvidia,num-dma-chans = <10>;
-		nvidia,dma-chans = <0 1 2 3 4 5 6 7 8 9>;
-		nvidia,num-mtl-queues = <10>;
-		nvidia,mtl-queues = <0 1 2 3 4 5 6 7 8 9>;
-		nvidia,tc-mapping = <0 1 2 3 4 5 6 7 0 1>;
+		nvidia,num-dma-chans = <8>;
+		nvidia,dma-chans = <0 1 2 3 4 5 6 7>;
+		nvidia,num-mtl-queues = <8>;
+		nvidia,mtl-queues = <0 1 2 3 4 5 6 7>;
+		nvidia,tc-mapping = <0 1 2 3 4 5 6 7>;
 		/* Residual Queue can be any valid queue except RxQ0 */
 		nvidia,residual-queue = <1>;
 		nvidia,rxq_enable_ctrl = <2 2 2 2 2 2 2 2 2 2>;
 		nvidia,vm-irq-config = <&mgbe_vm_irq_config>;
-		nvidia,tx-queue-prio = <0 1 2 3 4 5 6 7 0 0>;
+		nvidia,tx-queue-prio = <0 1 2 3 4 5 6 7>;
 		nvidia,rx-queue-prio = <0x1 0x2 0x4 0x8 0x10 0x20 0x40 0x80 0x0 0x0>;
 		status = "disabled";
 		nvidia,dcs-enable = <0x1>;
@@ -257,8 +249,8 @@
 		nvidia,tx_usecs = <256>;
 		nvidia,tx_frames = <16>;
 		nvidia,promisc_mode = <1>;
-		nvidia,slot_num_check = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
-		nvidia,slot_intvl_vals = <0x0 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D>;
+		nvidia,slot_num_check = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
+		nvidia,slot_intvl_vals = <0x0 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D>;
 		nvidia,ptp_ref_clock_speed = <312500000>;
 		nvidia,instance_id = <2>; /* MGBE2 instance */
 		nvidia,ptp-rx-queue = <3>;
@@ -279,10 +271,9 @@
 				<0 410 0x4>,	/* vm1 */
 				<0 411 0x4>,	/* vm2 */
 				<0 412 0x4>,	/* vm3 */
-				<0 413 0x4>,	/* vm4 */
 				<0 414 0x4>,	/* MACsec non-secure intr */
 				<0 415 0x4>;	/* MACsec secure intr */
-		interrupt-names = "common", "vm0", "vm1", "vm2", "vm3", "vm4",
+		interrupt-names = "common", "vm0", "vm1", "vm2", "vm3",
 				  "macsec-ns-irq", "macsec-s-irq";
 		resets = <&bpmp_resets TEGRA234_RESET_MGBE3_MAC>,
 			 <&bpmp_resets TEGRA234_RESET_MGBE3_PCS>,
@@ -312,16 +303,16 @@
 #endif
 		iommus = <&smmu_niso0 TEGRA_SID_NISO0_MGBE_VF3>;
 		power-domains = <&bpmp TEGRA234_POWER_DOMAIN_MGBEA>;
-		nvidia,num-dma-chans = <10>;
-		nvidia,dma-chans = <0 1 2 3 4 5 6 7 8 9>;
-		nvidia,num-mtl-queues = <10>;
-		nvidia,mtl-queues = <0 1 2 3 4 5 6 7 8 9>;
-		nvidia,tc-mapping = <0 1 2 3 4 5 6 7 0 1>;
+		nvidia,num-dma-chans = <8>;
+		nvidia,dma-chans = <0 1 2 3 4 5 6 7>;
+		nvidia,num-mtl-queues = <8>;
+		nvidia,mtl-queues = <0 1 2 3 4 5 6 7>;
+		nvidia,tc-mapping = <0 1 2 3 4 5 6 7>;
 		/* Residual Queue can be any valid queue except RxQ0 */
 		nvidia,residual-queue = <1>;
 		nvidia,rxq_enable_ctrl = <2 2 2 2 2 2 2 2 2 2>;
 		nvidia,vm-irq-config = <&mgbe_vm_irq_config>;
-		nvidia,tx-queue-prio = <0 1 2 3 4 5 6 7 0 0>;
+		nvidia,tx-queue-prio = <0 1 2 3 4 5 6 7>;
 		nvidia,rx-queue-prio = <0x1 0x2 0x4 0x8 0x10 0x20 0x40 0x80 0x0 0x0>;
 		status = "disabled";
 		nvidia,dcs-enable = <0x1>;
@@ -330,8 +321,8 @@
 		nvidia,tx_usecs = <256>;
 		nvidia,tx_frames = <16>;
 		nvidia,promisc_mode = <1>;
-		nvidia,slot_num_check = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
-		nvidia,slot_intvl_vals = <0x0 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D>;
+		nvidia,slot_num_check = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
+		nvidia,slot_intvl_vals = <0x0 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D>;
 		nvidia,ptp_ref_clock_speed = <312500000>;
 		nvidia,instance_id = <3>; /* MGBE3 instance */
 		nvidia,ptp-rx-queue = <3>;

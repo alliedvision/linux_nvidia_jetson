@@ -1,7 +1,7 @@
-From ae66b8c7732346b4983202d6a1020da297585bb1 Mon Sep 17 00:00:00 2001
+From 30d838d70a199f6c15b5ed124e97506fd2978f25 Mon Sep 17 00:00:00 2001
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 3 Jul 2009 08:44:03 -0500
-Subject: [PATCH 189/322] mm: Allow only SLUB on RT
+Subject: [PATCH 189/323] mm: Allow only SLUB on RT
 X-NVConfidentiality: public
 
 Memory allocation disables interrupts as part of the allocation and freeing
@@ -23,7 +23,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+)
 
 diff --git a/init/Kconfig b/init/Kconfig
-index 9807c66b24bb..df8d0d0f800f 100644
+index 9807c66b24bb6..df8d0d0f800f5 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
 @@ -1922,6 +1922,7 @@ choice

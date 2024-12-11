@@ -522,7 +522,7 @@ u8 *rtw_tdls_set_ht_cap(_adapter *padapter, u8 *pframe, struct pkt_attrib *pattr
 		padapter->mlmepriv.htpriv.sgi_40m = _FALSE;
 	}
 
-	rtw_restructure_ht_ie(padapter, NULL, pframe, 0, &(pattrib->pktlen), padapter->mlmeextpriv.cur_channel);
+	rtw_restructure_ht_ie(padapter, NULL, pframe, 0, &(pattrib->pktlen), padapter->mlmeextpriv.cur_channel, NULL);
 
 	return pframe + pattrib->pktlen;
 }
@@ -560,7 +560,8 @@ void rtw_tdls_process_vht_cap(_adapter *padapter, struct sta_info *ptdls_sta, u8
 	if (ptdls_sta->flags & WLAN_STA_VHT) {
 		if (REGSTY_IS_11AC_ENABLE(&padapter->registrypriv)
 		    && is_supported_vht(padapter->registrypriv.wireless_mode)
-		    && (!rfctl->country_ent || COUNTRY_CHPLAN_EN_11AC(rfctl->country_ent))) {
+		    && RFCTL_REG_EN_11AC(rfctl)
+		) {
 			ptdls_sta->vhtpriv.vht_option = _TRUE;
 			ptdls_sta->cmn.ra_info.is_vht_enable = _TRUE;
 		}
@@ -739,7 +740,7 @@ u8 *rtw_tdls_set_rsnie(struct tdls_txmgmt *ptxmgmt, u8 *pframe, struct pkt_attri
 
 u8 *rtw_tdls_set_ext_cap(u8 *pframe, struct pkt_attrib *pattrib)
 {
-	return rtw_set_ie(pframe, _EXT_CAP_IE_ , sizeof(TDLS_EXT_CAPIE), TDLS_EXT_CAPIE, &(pattrib->pktlen));
+	return rtw_set_ie(pframe, WLAN_EID_EXT_CAP , sizeof(TDLS_EXT_CAPIE), TDLS_EXT_CAPIE, &(pattrib->pktlen));
 }
 
 u8 *rtw_tdls_set_qos_cap(u8 *pframe, struct pkt_attrib *pattrib)
@@ -930,6 +931,7 @@ u8 *rtw_tdls_set_ch_sw(u8 *pframe, struct pkt_attrib *pattrib, struct sta_info *
 void rtw_tdls_set_ch_sw_oper_control(_adapter *padapter, u8 enable)
 {
 	HAL_DATA_TYPE *pHalData = GET_HAL_DATA(padapter);
+	u8 bcn_early_case;
 
 	if (enable == _TRUE) {
 #ifdef CONFIG_TDLS_CH_SW_V2
@@ -939,14 +941,18 @@ void rtw_tdls_set_ch_sw_oper_control(_adapter *padapter, u8 enable)
 #ifdef CONFIG_TDLS_CH_SW_BY_DRV
 		pHalData->ch_switch_offload = _FALSE;
 #endif
+		bcn_early_case = TDLS_BCN_ERLY_ON;
 	}
-	else
+	else {
 		pHalData->ch_switch_offload = _FALSE;
-	
+		bcn_early_case = TDLS_BCN_ERLY_OFF;
+	}
+
 	if (ATOMIC_READ(&padapter->tdlsinfo.chsw_info.chsw_on) != enable)
 		ATOMIC_SET(&padapter->tdlsinfo.chsw_info.chsw_on, enable);
 
-	rtw_hal_set_hwreg(padapter, HW_VAR_TDLS_BCN_EARLY_C2H_RPT, &enable);
+	rtw_hal_set_hwreg(padapter, HW_VAR_BCN_EARLY_C2H_RPT, &enable);
+	rtw_hal_set_hwreg(padapter, HW_VAR_SET_DRV_ERLY_INT, &bcn_early_case);
 	RTW_INFO("[TDLS] %s Bcn Early C2H Report\n", (enable == _TRUE) ? "Start" : "Stop");
 }
 
@@ -962,6 +968,7 @@ void rtw_tdls_ch_sw_back_to_base_chnl(_adapter *padapter)
 		rtw_tdls_cmd(padapter, pchsw_info->addr, TDLS_CH_SW_TO_BASE_CHNL_UNSOLICITED);
 }
 
+#ifndef CONFIG_TDLS_CH_SW_V2
 static void rtw_tdls_chsw_oper_init(_adapter *padapter, u32 timeout_ms)
 {
 	struct submit_ctx	*chsw_sctx = &padapter->tdlsinfo.chsw_info.chsw_sctx;
@@ -982,6 +989,7 @@ void rtw_tdls_chsw_oper_done(_adapter *padapter)
 
 	rtw_sctx_done(&chsw_sctx);
 }
+#endif
 
 s32 rtw_tdls_do_ch_sw(_adapter *padapter, struct sta_info *ptdls_sta, u8 chnl_type, u8 channel, u8 channel_offset, u16 bwmode, u16 ch_switch_time)
 {
@@ -1308,7 +1316,7 @@ int _issue_tdls_teardown(_adapter *padapter, struct tdls_txmgmt *ptxmgmt, struct
 	if (pmgntframe == NULL)
 		goto exit;
 
-	rtw_mi_set_scan_deny(padapter, 550);
+	rtw_mi_set_scan_deny(padapter, 550, "teardown");
 	rtw_mi_scan_abort(padapter, _TRUE);
 
 	pattrib = &pmgntframe->attrib;
@@ -1911,13 +1919,15 @@ sint On_TDLS_Setup_Req(_adapter *padapter, union recv_frame *precv_frame, struct
 
 			switch (pIE->ElementID) {
 			case _SUPPORTEDRATES_IE_:
-				_rtw_memcpy(supportRate, pIE->data, pIE->Length);
-				supportRateNum = pIE->Length;
+				if (pIE->Length <= sizeof(supportRate)) {
+					_rtw_memcpy(supportRate, pIE->data, pIE->Length);
+					supportRateNum = pIE->Length;
+				}
 				break;
-			case _COUNTRY_IE_:
+			case WLAN_EID_COUNTRY:
 				break;
 			case _EXT_SUPPORTEDRATES_IE_:
-				if (supportRateNum < sizeof(supportRate)) {
+				if ((supportRateNum + pIE->Length) <= sizeof(supportRate)) {
 					_rtw_memcpy(supportRate + supportRateNum, pIE->data, pIE->Length);
 					supportRateNum += pIE->Length;
 				}
@@ -1930,7 +1940,8 @@ sint On_TDLS_Setup_Req(_adapter *padapter, union recv_frame *precv_frame, struct
 					prsnie = (u8 *)pIE;
 					/* Check CCMP pairwise_cipher presence. */
 					ppairwise_cipher = prsnie + 10;
-					_rtw_memcpy(ptdls_sta->TDLS_RSNIE, pIE->data, pIE->Length);
+					_rtw_memcpy(ptdls_sta->TDLS_RSNIE, pIE->data,
+						(pIE->Length <= sizeof(ptdls_sta->TDLS_RSNIE) ? pIE->Length : sizeof(ptdls_sta->TDLS_RSNIE)));
 					pairwise_count = *(u16 *)(ppairwise_cipher - 2);
 					for (k = 0; k < pairwise_count; k++) {
 						if (_rtw_memcmp(ppairwise_cipher + 4 * k, RSN_CIPHER_SUITE_CCMP, 4) == _TRUE)
@@ -1941,7 +1952,7 @@ sint On_TDLS_Setup_Req(_adapter *padapter, union recv_frame *precv_frame, struct
 						txmgmt.status_code = _STATS_INVALID_RSNIE_;
 				}
 				break;
-			case _EXT_CAP_IE_:
+			case WLAN_EID_EXT_CAP:
 				break;
 			case _VENDOR_SPECIFIC_IE_:
 				break;
@@ -2093,13 +2104,15 @@ int On_TDLS_Setup_Rsp(_adapter *padapter, union recv_frame *precv_frame, struct 
 
 		switch (pIE->ElementID) {
 		case _SUPPORTEDRATES_IE_:
-			_rtw_memcpy(supportRate, pIE->data, pIE->Length);
-			supportRateNum = pIE->Length;
+			if (pIE->Length <= sizeof(supportRate)) {
+				_rtw_memcpy(supportRate, pIE->data, pIE->Length);
+				supportRateNum = pIE->Length;
+			}
 			break;
-		case _COUNTRY_IE_:
+		case WLAN_EID_COUNTRY:
 			break;
 		case _EXT_SUPPORTEDRATES_IE_:
-			if (supportRateNum < sizeof(supportRate)) {
+			if ((supportRateNum + pIE->Length) <= sizeof(supportRate)) {
 				_rtw_memcpy(supportRate + supportRateNum, pIE->data, pIE->Length);
 				supportRateNum += pIE->Length;
 			}
@@ -2115,7 +2128,8 @@ int On_TDLS_Setup_Rsp(_adapter *padapter, union recv_frame *precv_frame, struct 
 				if (_rtw_memcmp(ppairwise_cipher + 4 * k, RSN_CIPHER_SUITE_CCMP, 4) == _TRUE)
 					verify_ccmp = 1;
 			}
-		case _EXT_CAP_IE_:
+			break;
+		case WLAN_EID_EXT_CAP:
 			break;
 		case _VENDOR_SPECIFIC_IE_:
 			if (_rtw_memcmp((u8 *)pIE + 2, WMM_INFO_OUI, 6) == _TRUE) {
@@ -2583,6 +2597,7 @@ sint On_TDLS_Ch_Switch_Req(_adapter *padapter, union recv_frame *precv_frame, st
 				RTW_GET_LE16(pIE->data + 2) : TDLS_CH_SWITCH_TIMEOUT * 1000;
 			RTW_INFO("[TDLS] %s ch_switch_time:%d, ch_switch_timeout:%d\n"
 				, __FUNCTION__, RTW_GET_LE16(pIE->data), RTW_GET_LE16(pIE->data + 2));
+			break;
 		default:
 			break;
 		}
@@ -2590,6 +2605,7 @@ sint On_TDLS_Ch_Switch_Req(_adapter *padapter, union recv_frame *precv_frame, st
 		j += (pIE->Length + 2);
 	}
 
+#ifndef CONFIG_TDLS_CH_SW_V2
 	rtw_hal_get_hwreg(padapter, HW_VAR_CH_SW_NEED_TO_TAKE_CARE_IQK_INFO, &take_care_iqk);
 	if (take_care_iqk == _TRUE) {
 		u8 central_chnl;
@@ -2604,6 +2620,7 @@ sint On_TDLS_Ch_Switch_Req(_adapter *padapter, union recv_frame *precv_frame, st
 			return _FAIL;
 		}
 	}
+#endif
 
 	/* cancel ch sw monitor timer for responder */
 	if (!(pchsw_info->ch_sw_state & TDLS_CH_SW_INITIATOR_STATE))
@@ -2856,8 +2873,8 @@ void rtw_build_tdls_setup_req_ies(_adapter *padapter, struct xmit_frame *pxmitfr
 	if ((padapter->mlmepriv.htpriv.ht_option == _TRUE) && (pmlmeext->cur_channel > 14)
 	    && REGSTY_IS_11AC_ENABLE(pregistrypriv)
 	    && is_supported_vht(pregistrypriv->wireless_mode)
-	    && (!rfctl->country_ent || COUNTRY_CHPLAN_EN_11AC(rfctl->country_ent))
-	   ) {
+	    && RFCTL_REG_EN_11AC(rfctl)
+	) {
 		pframe = rtw_tdls_set_aid(padapter, pframe, pattrib);
 		pframe = rtw_tdls_set_vht_cap(padapter, pframe, pattrib);
 	}
@@ -2951,8 +2968,8 @@ void rtw_build_tdls_setup_rsp_ies(_adapter *padapter, struct xmit_frame *pxmitfr
 	if ((padapter->mlmepriv.htpriv.ht_option == _TRUE) && (pmlmeext->cur_channel > 14)
 	    && REGSTY_IS_11AC_ENABLE(pregistrypriv)
 	    && is_supported_vht(pregistrypriv->wireless_mode)
-	    && (!rfctl->country_ent || COUNTRY_CHPLAN_EN_11AC(rfctl->country_ent))
-	   ) {
+	    && RFCTL_REG_EN_11AC(rfctl)
+	) {
 		pframe = rtw_tdls_set_aid(padapter, pframe, pattrib);
 		pframe = rtw_tdls_set_vht_cap(padapter, pframe, pattrib);
 		pframe = rtw_tdls_set_vht_op_mode_notify(padapter, pframe, pattrib, pmlmeext->cur_bwmode);
@@ -3028,8 +3045,8 @@ void rtw_build_tdls_setup_cfm_ies(_adapter *padapter, struct xmit_frame *pxmitfr
 	    && (ptdls_sta->vhtpriv.vht_option == _TRUE) && (pmlmeext->cur_channel > 14)
 	    && REGSTY_IS_11AC_ENABLE(pregistrypriv)
 	    && is_supported_vht(pregistrypriv->wireless_mode)
-	    && (!rfctl->country_ent || COUNTRY_CHPLAN_EN_11AC(rfctl->country_ent))
-	   ) {
+	    && RFCTL_REG_EN_11AC(rfctl)
+	) {
 		pframe = rtw_tdls_set_vht_operation(padapter, pframe, pattrib, pmlmeext->cur_channel);
 		pframe = rtw_tdls_set_vht_op_mode_notify(padapter, pframe, pattrib, pmlmeext->cur_bwmode);
 	}
@@ -3353,11 +3370,6 @@ void _tdls_handshake_timer_hdl(void *FunctionContext)
 {
 	struct sta_info *ptdls_sta = (struct sta_info *)FunctionContext;
 	_adapter *padapter = NULL;
-	struct tdls_txmgmt txmgmt;
-
-	_rtw_memset(&txmgmt, 0x00, sizeof(struct tdls_txmgmt));
-	_rtw_memcpy(txmgmt.peer, ptdls_sta->cmn.mac_addr, ETH_ALEN);
-	txmgmt.status_code = _RSON_TDLS_TEAR_UN_RSN_;
 
 	if (ptdls_sta != NULL) {
 		padapter = ptdls_sta->padapter;
@@ -3374,11 +3386,6 @@ void _tdls_pti_timer_hdl(void *FunctionContext)
 {
 	struct sta_info *ptdls_sta = (struct sta_info *)FunctionContext;
 	_adapter *padapter = NULL;
-	struct tdls_txmgmt txmgmt;
-
-	_rtw_memset(&txmgmt, 0x00, sizeof(struct tdls_txmgmt));
-	_rtw_memcpy(txmgmt.peer, ptdls_sta->cmn.mac_addr, ETH_ALEN);
-	txmgmt.status_code = _RSON_TDLS_TEAR_TOOFAR_;
 
 	if (ptdls_sta != NULL) {
 		padapter = ptdls_sta->padapter;
@@ -3386,7 +3393,7 @@ void _tdls_pti_timer_hdl(void *FunctionContext)
 		if (ptdls_sta->tdls_sta_state & TDLS_WAIT_PTR_STATE) {
 			RTW_INFO("[TDLS] Doesn't receive PTR from peer dev:"MAC_FMT"; "
 				"Send TDLS Tear Down\n", MAC_ARG(ptdls_sta->cmn.mac_addr));
-			rtw_tdls_cmd(padapter, ptdls_sta->cmn.mac_addr, TDLS_TEARDOWN_STA);
+			rtw_tdls_cmd(padapter, ptdls_sta->cmn.mac_addr, TDLS_TEARDOWN_STA_TOOFAR);
 		}
 	}
 }

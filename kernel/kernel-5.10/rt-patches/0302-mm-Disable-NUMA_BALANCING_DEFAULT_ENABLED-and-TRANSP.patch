@@ -1,7 +1,7 @@
-From 5b258d4484094db6b1c91cc20ba1f0d8a1eb3c9d Mon Sep 17 00:00:00 2001
+From 76296474bc7c69eae3685624bc86779e622ba5c5 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 29 Oct 2021 10:07:11 +0200
-Subject: [PATCH 302/322] mm: Disable NUMA_BALANCING_DEFAULT_ENABLED and
+Subject: [PATCH 302/323] mm: Disable NUMA_BALANCING_DEFAULT_ENABLED and
  TRANSPARENT_HUGEPAGE on PREEMPT_RT
 X-NVConfidentiality: public
 
@@ -34,7 +34,7 @@ Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/init/Kconfig b/init/Kconfig
-index c5f276d782de..a62d2961064b 100644
+index c5f276d782def..a62d2961064b2 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
 @@ -878,7 +878,7 @@ config NUMA_BALANCING

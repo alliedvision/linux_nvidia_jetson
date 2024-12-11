@@ -1,7 +1,7 @@
-From 55135a43535c98a0c783ad515e4fb37ef2520bed Mon Sep 17 00:00:00 2001
+From 380651f6cce8557b08eb2558415a51114090e35c Mon Sep 17 00:00:00 2001
 From: "Ahmed S. Darwish" <a.darwish@linutronix.de>
 Date: Wed, 10 Jun 2020 12:53:22 +0200
-Subject: [PATCH 182/322] xfrm: Use sequence counter with associated spinlock
+Subject: [PATCH 182/323] xfrm: Use sequence counter with associated spinlock
 X-NVConfidentiality: public
 
 A sequence counter write side critical section must be protected by some
@@ -28,7 +28,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index ba73014805a4..14e1f36bdda5 100644
+index ba73014805a4f..14e1f36bdda57 100644
 --- a/net/xfrm/xfrm_state.c
 +++ b/net/xfrm/xfrm_state.c
 @@ -2691,7 +2691,8 @@ int __net_init xfrm_state_init(struct net *net)

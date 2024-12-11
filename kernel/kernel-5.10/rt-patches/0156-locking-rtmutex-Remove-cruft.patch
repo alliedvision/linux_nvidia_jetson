@@ -1,7 +1,7 @@
-From 94570fb4b0967f4aa3261083bc74b049aa48a7d2 Mon Sep 17 00:00:00 2001
+From 285cf9d01b968addec4e48ad638049e518c52de4 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 29 Sep 2020 15:21:17 +0200
-Subject: [PATCH 156/322] locking/rtmutex: Remove cruft
+Subject: [PATCH 156/323] locking/rtmutex: Remove cruft
 X-NVConfidentiality: public
 
 Most of this is around since the very beginning. I'm not sure if this
@@ -26,7 +26,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  4 files changed, 3 insertions(+), 15 deletions(-)
 
 diff --git a/include/linux/rtmutex.h b/include/linux/rtmutex.h
-index 6fd615a0eea9..16f974a22f51 100644
+index 6fd615a0eea94..16f974a22f516 100644
 --- a/include/linux/rtmutex.h
 +++ b/include/linux/rtmutex.h
 @@ -32,10 +32,7 @@ struct rt_mutex {
@@ -51,7 +51,7 @@ index 6fd615a0eea9..16f974a22f51 100644
  # define rt_mutex_init(mutex) \
  do { \
 diff --git a/kernel/locking/rtmutex-debug.c b/kernel/locking/rtmutex-debug.c
-index 36e69100e8e0..7e411b946d4c 100644
+index 36e69100e8e06..7e411b946d4c3 100644
 --- a/kernel/locking/rtmutex-debug.c
 +++ b/kernel/locking/rtmutex-debug.c
 @@ -42,12 +42,7 @@ static void printk_task(struct task_struct *p)
@@ -69,7 +69,7 @@ index 36e69100e8e0..7e411b946d4c 100644
  	if (print_owner && rt_mutex_owner(lock)) {
  		printk(".. ->owner: %p\n", lock->owner);
 diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
-index f00dd928fc71..4792fc7abe7d 100644
+index f00dd928fc711..4792fc7abe7dd 100644
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
 @@ -1655,9 +1655,6 @@ void __sched rt_mutex_futex_unlock(struct rt_mutex *lock)
@@ -83,7 +83,7 @@ index f00dd928fc71..4792fc7abe7d 100644
  EXPORT_SYMBOL_GPL(rt_mutex_destroy);
  
 diff --git a/kernel/locking/rtmutex_common.h b/kernel/locking/rtmutex_common.h
-index ca6fb489007b..e6913103d7ff 100644
+index ca6fb489007b6..e6913103d7ff7 100644
 --- a/kernel/locking/rtmutex_common.h
 +++ b/kernel/locking/rtmutex_common.h
 @@ -30,7 +30,6 @@ struct rt_mutex_waiter {

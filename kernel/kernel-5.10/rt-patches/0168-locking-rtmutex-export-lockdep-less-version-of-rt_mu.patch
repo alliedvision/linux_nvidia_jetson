@@ -1,7 +1,7 @@
-From 8a0e4d5434653f2c2c85348cab8338039c6530e3 Mon Sep 17 00:00:00 2001
+From f84f1a1dd413560223f3cbb44a2ddd3e80698667 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 16:36:39 +0200
-Subject: [PATCH 168/322] locking/rtmutex: export lockdep-less version of
+Subject: [PATCH 168/323] locking/rtmutex: export lockdep-less version of
  rt_mutex's lock, trylock and unlock
 X-NVConfidentiality: public
 
@@ -15,7 +15,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 41 insertions(+), 16 deletions(-)
 
 diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
-index 395a3e8b2463..40ae934c6caa 100644
+index 395a3e8b24635..40ae934c6caa7 100644
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
 @@ -1469,12 +1469,33 @@ rt_mutex_fastunlock(struct rt_mutex *lock,
@@ -112,7 +112,7 @@ index 395a3e8b2463..40ae934c6caa 100644
   * rt_mutex_unlock - unlock a rt_mutex
   *
 diff --git a/kernel/locking/rtmutex_common.h b/kernel/locking/rtmutex_common.h
-index b5a2affa59d5..9d1e974ca9c3 100644
+index b5a2affa59d58..9d1e974ca9c34 100644
 --- a/kernel/locking/rtmutex_common.h
 +++ b/kernel/locking/rtmutex_common.h
 @@ -156,6 +156,9 @@ extern bool __rt_mutex_futex_unlock(struct rt_mutex *lock,

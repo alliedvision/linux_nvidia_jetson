@@ -1,7 +1,7 @@
-From 958018396cfa6539e0f6725a5d641e5207ce3d04 Mon Sep 17 00:00:00 2001
+From 596561eabb9f61ffbd6dff56223ebc2514783fe1 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 9 Nov 2020 15:54:03 +0100
-Subject: [PATCH 021/322] sched: Unlock the rq in affine_move_task() error path
+Subject: [PATCH 021/323] sched: Unlock the rq in affine_move_task() error path
 X-NVConfidentiality: public
 
 Unlock the rq if returned early in the error path.
@@ -14,7 +14,7 @@ Link: https://lkml.kernel.org/r/20201106203921.GA48461@zipoli.concurrent-rt.com
  1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 975fe55f88ee..16db3f6d2af0 100644
+index e92f281eb2731..674f515b09bf2 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -2228,8 +2228,10 @@ static int affine_move_task(struct rq *rq, struct task_struct *p, struct rq_flag

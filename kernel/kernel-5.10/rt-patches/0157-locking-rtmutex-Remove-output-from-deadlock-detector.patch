@@ -1,7 +1,7 @@
-From 913807aecf64148aaee87209010a55526808596e Mon Sep 17 00:00:00 2001
+From 21016960c7e647aeb85ae8fe4dbb77e32fe3b58c Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 29 Sep 2020 16:05:11 +0200
-Subject: [PATCH 157/322] locking/rtmutex: Remove output from deadlock
+Subject: [PATCH 157/323] locking/rtmutex: Remove output from deadlock
  detector.
 X-NVConfidentiality: public
 
@@ -34,7 +34,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  6 files changed, 135 deletions(-)
 
 diff --git a/include/linux/rtmutex.h b/include/linux/rtmutex.h
-index 16f974a22f51..88a0ba806066 100644
+index 16f974a22f516..88a0ba806066b 100644
 --- a/include/linux/rtmutex.h
 +++ b/include/linux/rtmutex.h
 @@ -31,9 +31,6 @@ struct rt_mutex {
@@ -73,7 +73,7 @@ index 16f974a22f51..88a0ba806066 100644
  
  #define DEFINE_RT_MUTEX(mutexname) \
 diff --git a/kernel/locking/rtmutex-debug.c b/kernel/locking/rtmutex-debug.c
-index 7e411b946d4c..fb150100335f 100644
+index 7e411b946d4c3..fb150100335fc 100644
 --- a/kernel/locking/rtmutex-debug.c
 +++ b/kernel/locking/rtmutex-debug.c
 @@ -32,105 +32,12 @@
@@ -207,7 +207,7 @@ index 7e411b946d4c..fb150100335f 100644
  }
 -
 diff --git a/kernel/locking/rtmutex-debug.h b/kernel/locking/rtmutex-debug.h
-index fc549713bba3..659e93e256c6 100644
+index fc549713bba3f..659e93e256c67 100644
 --- a/kernel/locking/rtmutex-debug.h
 +++ b/kernel/locking/rtmutex-debug.h
 @@ -18,20 +18,9 @@ extern void debug_rt_mutex_unlock(struct rt_mutex *lock);
@@ -232,7 +232,7 @@ index fc549713bba3..659e93e256c6 100644
 -	debug_rt_mutex_print_deadlock(w);
 -}
 diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
-index 4792fc7abe7d..9aa4d545020a 100644
+index 4792fc7abe7dd..9aa4d545020af 100644
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
 @@ -597,7 +597,6 @@ static int rt_mutex_adjust_prio_chain(struct task_struct *task,
@@ -273,7 +273,7 @@ index 4792fc7abe7d..9aa4d545020a 100644
  }
  
 diff --git a/kernel/locking/rtmutex.h b/kernel/locking/rtmutex.h
-index 732f96abf462..338ccd29119a 100644
+index 732f96abf4623..338ccd29119a1 100644
 --- a/kernel/locking/rtmutex.h
 +++ b/kernel/locking/rtmutex.h
 @@ -19,15 +19,8 @@
@@ -293,7 +293,7 @@ index 732f96abf462..338ccd29119a 100644
  						  enum rtmutex_chainwalk walk)
  {
 diff --git a/kernel/locking/rtmutex_common.h b/kernel/locking/rtmutex_common.h
-index e6913103d7ff..b1455dc2366f 100644
+index e6913103d7ff7..b1455dc2366fb 100644
 --- a/kernel/locking/rtmutex_common.h
 +++ b/kernel/locking/rtmutex_common.h
 @@ -29,10 +29,6 @@ struct rt_mutex_waiter {

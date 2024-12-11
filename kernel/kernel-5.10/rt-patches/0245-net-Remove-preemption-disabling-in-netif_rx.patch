@@ -1,7 +1,7 @@
-From 50e9b886000bb956f3df2ef4f41a4dc2c8f4081f Mon Sep 17 00:00:00 2001
+From b755fe7306dde88543a8ecaf23ac7937ea2a4b79 Mon Sep 17 00:00:00 2001
 From: Priyanka Jain <Priyanka.Jain@freescale.com>
 Date: Thu, 17 May 2012 09:35:11 +0530
-Subject: [PATCH 245/322] net: Remove preemption disabling in netif_rx()
+Subject: [PATCH 245/323] net: Remove preemption disabling in netif_rx()
 X-NVConfidentiality: public
 
 1)enqueue_to_backlog() (called from netif_rx) should be
@@ -33,10 +33,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 33667af204bd..83f54f368fa9 100644
+index e1c7868d8e96c..9f33beea18baa 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -4819,7 +4819,7 @@ static int netif_rx_internal(struct sk_buff *skb)
+@@ -4827,7 +4827,7 @@ static int netif_rx_internal(struct sk_buff *skb)
  		struct rps_dev_flow voidflow, *rflow = &voidflow;
  		int cpu;
  
@@ -45,7 +45,7 @@ index 33667af204bd..83f54f368fa9 100644
  		rcu_read_lock();
  
  		cpu = get_rps_cpu(skb->dev, skb, &rflow);
-@@ -4829,14 +4829,14 @@ static int netif_rx_internal(struct sk_buff *skb)
+@@ -4837,14 +4837,14 @@ static int netif_rx_internal(struct sk_buff *skb)
  		ret = enqueue_to_backlog(skb, cpu, &rflow->last_qtail);
  
  		rcu_read_unlock();

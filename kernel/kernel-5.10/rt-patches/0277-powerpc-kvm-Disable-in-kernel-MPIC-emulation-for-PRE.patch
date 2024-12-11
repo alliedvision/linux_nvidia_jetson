@@ -1,7 +1,7 @@
-From ae30611576187b21bc6a2a594f1fe3b01c6df9fe Mon Sep 17 00:00:00 2001
+From f8665d4ec7e72d7eb4e9a0b59c646d09502b2379 Mon Sep 17 00:00:00 2001
 From: Bogdan Purcareata <bogdan.purcareata@freescale.com>
 Date: Fri, 24 Apr 2015 15:53:13 +0000
-Subject: [PATCH 277/322] powerpc/kvm: Disable in-kernel MPIC emulation for
+Subject: [PATCH 277/323] powerpc/kvm: Disable in-kernel MPIC emulation for
  PREEMPT_RT
 X-NVConfidentiality: public
 
@@ -29,7 +29,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+)
 
 diff --git a/arch/powerpc/kvm/Kconfig b/arch/powerpc/kvm/Kconfig
-index 549591d9aaa2..efb5bfe93f70 100644
+index 549591d9aaa2c..efb5bfe93f705 100644
 --- a/arch/powerpc/kvm/Kconfig
 +++ b/arch/powerpc/kvm/Kconfig
 @@ -178,6 +178,7 @@ config KVM_E500MC

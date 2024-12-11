@@ -27,7 +27,7 @@ extern void indicate_wx_scan_complete_event(_adapter *padapter);
 	  (addr[4] == 0xff) && (addr[5] == 0xff)) ? _TRUE : _FALSE \
 	)
 
-u8 rtw_validate_bssid(u8 *bssid)
+u8 rtw_validate_bssid(const u8 *bssid)
 {
 	u8 ret = _TRUE;
 
@@ -137,10 +137,20 @@ u8 rtw_do_join(_adapter *padapter)
 		_exit_critical_bh(&(pmlmepriv->scanned_queue.lock), &irqL);
 		select_ret = rtw_select_and_join_from_scanned_queue(pmlmepriv);
 		if (select_ret == _SUCCESS) {
+			u32 join_timeout = MAX_JOIN_TIMEOUT;
+
+#if defined(CONFIG_CONCURRENT_MODE) && defined(CONFIG_AP_MODE)
+			struct rf_ctl_t *rfctl;
+			rfctl = adapter_to_rfctl(padapter);
+			if (rfctl->ap_csa_en == CSA_STA_JOINBSS)
+				join_timeout += (rfctl->ap_csa_switch_cnt * 100);
+#endif
+
 			pmlmepriv->to_join = _FALSE;
-			_set_timer(&pmlmepriv->assoc_timer, MAX_JOIN_TIMEOUT);
+			_set_timer(&pmlmepriv->assoc_timer, join_timeout);
 		} else {
 			if (check_fwstate(pmlmepriv, WIFI_ADHOC_STATE) == _TRUE) {
+				#ifdef CONFIG_AP_MODE
 				/* submit createbss_cmd to change to a ADHOC_MASTER */
 
 				/* pmlmepriv->lock has been acquired by caller... */
@@ -164,14 +174,26 @@ u8 rtw_do_join(_adapter *padapter)
 				}
 
 				pmlmepriv->to_join = _FALSE;
+				#endif /* CONFIG_AP_MODE */
 
+			} else if (pmlmepriv->need_to_roam == _TRUE || rtw_to_roam(padapter) > 0) {
+				/* can't associate ; reset under-linking			 */
+				_clr_fwstate_(pmlmepriv, WIFI_UNDER_LINKING);
+				/* if all scanned candidates are fail, report to supplicant */
+				rtw_set_to_roam(padapter, 0);
+				rtw_indicate_disconnect(padapter, 0, TRUE);
+				pmlmepriv->to_join = _FALSE;
+#ifdef CONFIG_LAYER2_ROAMING
+				flush_roam_buf_pkt(padapter, TRUE);
+#endif
+				ret = _FAIL;
 
 			} else {
 				/* can't associate ; reset under-linking			 */
 				_clr_fwstate_(pmlmepriv, WIFI_UNDER_LINKING);
-
 				/* when set_ssid/set_bssid for rtw_do_join(), but there are no desired bss in scanning queue */
 				/* we try to issue sitesurvey firstly			 */
+
 				if (pmlmepriv->LinkDetectInfo.bBusyTraffic == _FALSE
 				    || rtw_to_roam(padapter) > 0
 				   ) {
@@ -373,7 +395,7 @@ exit:
 }
 
 u8 rtw_set_802_11_connect(_adapter *padapter,
-			  u8 *bssid, NDIS_802_11_SSID *ssid, u16 ch)
+			  const u8 *bssid, NDIS_802_11_SSID *ssid, u16 ch)
 {
 	_irqL irqL;
 	u8 status = _SUCCESS;
@@ -654,7 +676,7 @@ u8 rtw_set_acs_sitesurvey(_adapter *adapter)
 			center_chs_num = center_chs_2g_num;
 			center_chs = center_chs_2g;
 		} else
-		#ifdef CONFIG_IEEE80211_BAND_5GHZ
+		#if CONFIG_IEEE80211_BAND_5GHZ
 		if (band == BAND_ON_5G) {
 			center_chs_num = center_chs_5g_num;
 			center_chs = center_chs_5g;
@@ -671,7 +693,7 @@ u8 rtw_set_acs_sitesurvey(_adapter *adapter)
 		if (rfctl->ch_sel_within_same_band) {
 			if (rtw_is_2g_ch(uch) && band != BAND_ON_2_4G)
 				continue;
-			#ifdef CONFIG_IEEE80211_BAND_5GHZ
+			#if CONFIG_IEEE80211_BAND_5GHZ
 			if (rtw_is_5g_ch(uch) && band != BAND_ON_5G)
 				continue;
 			#endif
@@ -880,10 +902,14 @@ int rtw_set_scan_mode(_adapter *adapter, RT_SCAN_TYPE scan_mode)
 *
 * Return _SUCCESS or _FAIL
 */
-int rtw_set_channel_plan(_adapter *adapter, u8 channel_plan)
+int rtw_set_channel_plan(_adapter *adapter, u8 channel_plan, u8 chplan_6g, enum rtw_regd_inr inr)
 {
-	/* handle by cmd_thread to sync with scan operation */
-	return rtw_set_chplan_cmd(adapter, RTW_CMDF_WAIT_ACK, channel_plan, 1);
+	struct registry_priv *regsty = adapter_to_regsty(adapter);
+
+	if (!REGSTY_REGD_SRC_FROM_OS(regsty))
+		return rtw_set_chplan_cmd(adapter, RTW_CMDF_WAIT_ACK, channel_plan, chplan_6g, inr);
+	RTW_WARN("%s(): not applied\n", __func__);
+	return _SUCCESS;
 }
 
 /*
@@ -893,14 +919,16 @@ int rtw_set_channel_plan(_adapter *adapter, u8 channel_plan)
 *
 * Return _SUCCESS or _FAIL
 */
-int rtw_set_country(_adapter *adapter, const char *country_code)
+int rtw_set_country(_adapter *adapter, const char *country_code, enum rtw_regd_inr inr)
 {
 #ifdef CONFIG_RTW_IOCTL_SET_COUNTRY
-	return rtw_set_country_cmd(adapter, RTW_CMDF_WAIT_ACK, country_code, 1);
-#else
-	RTW_INFO("%s(): not applied\n", __func__);
-	return _SUCCESS;
+	struct registry_priv *regsty = adapter_to_regsty(adapter);
+
+	if (!REGSTY_REGD_SRC_FROM_OS(regsty))
+		return rtw_set_country_cmd(adapter, RTW_CMDF_WAIT_ACK, country_code, inr);
 #endif
+	RTW_WARN("%s(): not applied\n", __func__);
+	return _SUCCESS;
 }
 
 /*

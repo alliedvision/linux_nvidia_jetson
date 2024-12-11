@@ -96,6 +96,10 @@
 #ifdef CONFIG_IOCTL_CFG80211
 	/*	#include <linux/ieee80211.h> */
 	#include <net/cfg80211.h>
+#else
+	#ifdef CONFIG_REGD_SRC_FROM_OS
+	#error "CONFIG_REGD_SRC_FROM_OS requires CONFIG_IOCTL_CFG80211"
+	#endif
 #endif /* CONFIG_IOCTL_CFG80211 */
 
 
@@ -147,6 +151,16 @@
 	#undef CONFIG_RTW_GRO
 	/*#warning "Linux Kernel version too old to support GRO(should newer than 2.6.33)\n"*/
 
+#endif
+
+/*
+ * MLD related linux kernel patch in
+ * Android Common Kernel android13-5.15
+ * refs/heads/common-android13-5.15-2023-04 (5.15.94)
+ * refs/heads/android13-5.15-lts (5.15.106)
+ */
+#if (defined(__ANDROID_COMMON_KERNEL__) && (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 94)))
+        #define CONFIG_MLD_KERNEL_PATCH
 #endif
 
 typedef struct	semaphore _sema;
@@ -217,6 +231,7 @@ typedef void *timer_hdl_context;
 #endif
 
 typedef unsigned long systime;
+typedef ktime_t sysptime;
 typedef struct tasklet_struct _tasklet;
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 22))
@@ -385,6 +400,11 @@ __inline static void _cancel_timer(_timer *ptimer, u8 *bcancelled)
 	*bcancelled = del_timer_sync(&ptimer->timer) == 1 ? 1 : 0;
 }
 
+__inline static void _cancel_timer_async(_timer *ptimer)
+{
+	del_timer(&ptimer->timer);
+}
+
 static inline void _init_workitem(_workitem *pwork, void *pfunc, void *cntx)
 {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 20))
@@ -516,6 +536,15 @@ static inline int rtw_merge_string(char *dst, int dst_len, const char *src1, con
 /* Atomic integer operations */
 #define ATOMIC_T atomic_t
 
+
+#if defined(DBG_MEM_ERR_FREE)
+void rtw_dbg_mem_init(void);
+void rtw_dbg_mem_deinit(void);
+#else
+#define rtw_dbg_mem_init() do {} while (0)
+#define rtw_dbg_mem_deinit() do {} while (0)
+#endif /* DBG_MEM_ERR_FREE */
+
 #define rtw_netdev_priv(netdev) (((struct rtw_netdev_priv_indicator *)netdev_priv(netdev))->priv)
 
 #define NDEV_FMT "%s"
@@ -550,5 +579,22 @@ extern struct net_device *rtw_alloc_etherdev(int sizeof_priv);
 
 #define STRUCT_PACKED __attribute__ ((packed))
 
+#ifndef fallthrough
+#if __GNUC__ >= 5 || defined(__clang__)
+#ifndef __has_attribute
+#define __has_attribute(x) 0
+#endif
+#if __has_attribute(__fallthrough__)
+#define fallthrough __attribute__((__fallthrough__))
+#endif
+#endif
+#ifndef fallthrough
+#define fallthrough do {} while (0) /* fallthrough */
+#endif
+#endif
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 17, 0))
+#define dev_addr_mod(dev, offset, addr, len) _rtw_memcpy(&dev->dev_addr[offset], addr, len)
+#endif
 
 #endif /* __OSDEP_LINUX_SERVICE_H_ */

@@ -1,7 +1,7 @@
-From 17b8332f7f8c162e069b7793830ea33933535aad Mon Sep 17 00:00:00 2001
+From 7fd1e3807a433caa4302916504c9f3abc6c6a43b Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 17:17:03 +0200
-Subject: [PATCH 172/322] locking/rtmutex: add mutex implementation based on
+Subject: [PATCH 172/323] locking/rtmutex: add mutex implementation based on
  rtmutex
 X-NVConfidentiality: public
 
@@ -16,7 +16,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 diff --git a/include/linux/mutex_rt.h b/include/linux/mutex_rt.h
 new file mode 100644
-index 000000000000..f0b2e07cd5c5
+index 0000000000000..f0b2e07cd5c57
 --- /dev/null
 +++ b/include/linux/mutex_rt.h
 @@ -0,0 +1,130 @@
@@ -152,7 +152,7 @@ index 000000000000..f0b2e07cd5c5
 +#endif
 diff --git a/kernel/locking/mutex-rt.c b/kernel/locking/mutex-rt.c
 new file mode 100644
-index 000000000000..2b849e6b9b4a
+index 0000000000000..2b849e6b9b4ae
 --- /dev/null
 +++ b/kernel/locking/mutex-rt.c
 @@ -0,0 +1,224 @@

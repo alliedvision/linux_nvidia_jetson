@@ -1,7 +1,7 @@
-From d8418baf84cee240edf8325b8f05eaac4c418cf9 Mon Sep 17 00:00:00 2001
+From 86eeef4effe06831364b7bc0c47989510722a5a1 Mon Sep 17 00:00:00 2001
 From: Anand Je Saipureddy <s.anandje1@gmail.com>
 Date: Sat, 23 Jul 2022 12:19:43 +0530
-Subject: [PATCH 315/322] ftrace: Fix improper usage of __trace_stack()
+Subject: [PATCH 315/323] ftrace: Fix improper usage of __trace_stack()
  function.
 X-NVConfidentiality: public
 
@@ -26,7 +26,7 @@ Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
  1 file changed, 3 insertions(+), 5 deletions(-)
 
 diff --git a/kernel/trace/trace_events_trigger.c b/kernel/trace/trace_events_trigger.c
-index 75fef9fcfd0f..3c6229f16e81 100644
+index 75fef9fcfd0fb..3c6229f16e81d 100644
 --- a/kernel/trace/trace_events_trigger.c
 +++ b/kernel/trace/trace_events_trigger.c
 @@ -1220,12 +1220,10 @@ stacktrace_trigger(struct event_trigger_data *data, void *rec,

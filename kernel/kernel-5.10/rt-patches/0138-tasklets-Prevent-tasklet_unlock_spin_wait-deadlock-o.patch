@@ -1,7 +1,7 @@
-From ba8ddb91d8b66ccad98c41c4dda9d58ac09f389a Mon Sep 17 00:00:00 2001
+From cccb2d295094217c7c8c1812e8a91c64c2ba5a56 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 9 Mar 2021 09:42:10 +0100
-Subject: [PATCH 138/322] tasklets: Prevent tasklet_unlock_spin_wait() deadlock
+Subject: [PATCH 138/323] tasklets: Prevent tasklet_unlock_spin_wait() deadlock
  on RT
 X-NVConfidentiality: public
 
@@ -28,7 +28,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 29 insertions(+), 11 deletions(-)
 
 diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index c4fafbfa28a6..6eae70ec3a17 100644
+index c4fafbfa28a6f..6eae70ec3a178 100644
 --- a/include/linux/interrupt.h
 +++ b/include/linux/interrupt.h
 @@ -658,7 +658,7 @@ enum
@@ -59,7 +59,7 @@ index c4fafbfa28a6..6eae70ec3a17 100644
  static inline int tasklet_trylock(struct tasklet_struct *t) { return 1; }
  static inline void tasklet_unlock(struct tasklet_struct *t) { }
 diff --git a/kernel/softirq.c b/kernel/softirq.c
-index ecc3ac4091c8..fcb201ceed71 100644
+index ecc3ac4091c8c..fcb201ceed712 100644
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
 @@ -614,6 +614,32 @@ void tasklet_init(struct tasklet_struct *t,

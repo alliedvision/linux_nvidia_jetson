@@ -1,0 +1,14 @@
+Template: avt-nvidia-l4t-bootloader/target-board
+Type: select
+Choices: ${board-configurations}
+Default: ${default-board-configuration}
+Description: Select board configuration:
+
+Template: avt-nvidia-l4t-kernel-dtbs/beta-warning
+Type: note
+Description: WARNING: beta configuration selected!
+ The selected configuration is in beta state and not validated.
+
+Template: avt-nvidia-l4t-kernel-dtbs/no-board-error
+Type: note
+Description: ERROR: Board not supported! No suitable configuration found!

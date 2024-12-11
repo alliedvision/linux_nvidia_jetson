@@ -1,7 +1,7 @@
-From 327dfd9085054f4b436a64abc23a33d9d8854f90 Mon Sep 17 00:00:00 2001
+From 0173cb82d34b4eebaadb31492f8f6d6ab6b51e24 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 17 Oct 2017 16:36:18 +0200
-Subject: [PATCH 249/322] lockdep: disable self-test
+Subject: [PATCH 249/323] lockdep: disable self-test
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -18,10 +18,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
-index 19c28a34c5f1..62c77769a955 100644
+index 24ca61cf86ddc..70172d5ab82a8 100644
 --- a/lib/Kconfig.debug
 +++ b/lib/Kconfig.debug
-@@ -1370,7 +1370,7 @@ config DEBUG_ATOMIC_SLEEP
+@@ -1373,7 +1373,7 @@ config DEBUG_ATOMIC_SLEEP
  
  config DEBUG_LOCKING_API_SELFTESTS
  	bool "Locking API boot-time self-tests"

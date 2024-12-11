@@ -1,7 +1,7 @@
-From 1bfe982ac27e112997ba6e07f159fb50a309de88 Mon Sep 17 00:00:00 2001
+From b2cdccc46d1e71a6c01f411693cc81a85a7838ce Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 21 Feb 2014 17:24:04 +0100
-Subject: [PATCH 241/322] crypto: Reduce preempt disabled regions, more algos
+Subject: [PATCH 241/323] crypto: Reduce preempt disabled regions, more algos
 X-NVConfidentiality: public
 
 Don Estabrook reported
@@ -43,7 +43,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 24 insertions(+), 23 deletions(-)
 
 diff --git a/arch/x86/crypto/cast5_avx_glue.c b/arch/x86/crypto/cast5_avx_glue.c
-index 384ccb00f9e1..2f8df8ef8644 100644
+index 384ccb00f9e15..2f8df8ef8644e 100644
 --- a/arch/x86/crypto/cast5_avx_glue.c
 +++ b/arch/x86/crypto/cast5_avx_glue.c
 @@ -46,7 +46,7 @@ static inline void cast5_fpu_end(bool fpu_enabled)
@@ -126,7 +126,7 @@ index 384ccb00f9e1..2f8df8ef8644 100644
  		ctr_crypt_final(&walk, ctx);
  		err = skcipher_walk_done(&walk, 0);
 diff --git a/arch/x86/crypto/glue_helper.c b/arch/x86/crypto/glue_helper.c
-index d3d91a0abf88..6d0774721514 100644
+index d3d91a0abf88f..6d07747215147 100644
 --- a/arch/x86/crypto/glue_helper.c
 +++ b/arch/x86/crypto/glue_helper.c
 @@ -24,7 +24,7 @@ int glue_ecb_req_128bit(const struct common_glue_ctx *gctx,

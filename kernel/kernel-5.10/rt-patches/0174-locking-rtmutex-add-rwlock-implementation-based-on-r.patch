@@ -1,7 +1,7 @@
-From af06f3ae637c89e54f8c59060a0269bdf5c8dca7 Mon Sep 17 00:00:00 2001
+From 834cb75dd4e6c87c6d1cdbab23ce201216e7f457 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 17:18:06 +0200
-Subject: [PATCH 174/322] locking/rtmutex: add rwlock implementation based on
+Subject: [PATCH 174/323] locking/rtmutex: add rwlock implementation based on
  rtmutex
 X-NVConfidentiality: public
 
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 diff --git a/include/linux/rwlock_rt.h b/include/linux/rwlock_rt.h
 new file mode 100644
-index 000000000000..aafdb0a685d5
+index 0000000000000..aafdb0a685d54
 --- /dev/null
 +++ b/include/linux/rwlock_rt.h
 @@ -0,0 +1,109 @@
@@ -136,7 +136,7 @@ index 000000000000..aafdb0a685d5
 +#endif
 diff --git a/include/linux/rwlock_types_rt.h b/include/linux/rwlock_types_rt.h
 new file mode 100644
-index 000000000000..4762391d659b
+index 0000000000000..4762391d659bf
 --- /dev/null
 +++ b/include/linux/rwlock_types_rt.h
 @@ -0,0 +1,56 @@
@@ -197,7 +197,7 @@ index 000000000000..4762391d659b
 +
 +#endif
 diff --git a/kernel/Kconfig.locks b/kernel/Kconfig.locks
-index 3de8fd11873b..4198f0273ecd 100644
+index 3de8fd11873b4..4198f0273ecdc 100644
 --- a/kernel/Kconfig.locks
 +++ b/kernel/Kconfig.locks
 @@ -251,7 +251,7 @@ config ARCH_USE_QUEUED_RWLOCKS
@@ -211,7 +211,7 @@ index 3de8fd11873b..4198f0273ecd 100644
  	bool
 diff --git a/kernel/locking/rwlock-rt.c b/kernel/locking/rwlock-rt.c
 new file mode 100644
-index 000000000000..1ee16b8fedd7
+index 0000000000000..1ee16b8fedd77
 --- /dev/null
 +++ b/kernel/locking/rwlock-rt.c
 @@ -0,0 +1,328 @@

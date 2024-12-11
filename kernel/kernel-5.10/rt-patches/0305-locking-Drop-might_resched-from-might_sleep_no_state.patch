@@ -1,7 +1,7 @@
-From 0d3fb03aa5e0ec31f3a049d9ba17a74c52615566 Mon Sep 17 00:00:00 2001
+From 76589217b74629b82dea446404b824f7d0c8b7e3 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 6 Sep 2021 18:19:16 +0200
-Subject: [PATCH 305/322] locking: Drop might_resched() from
+Subject: [PATCH 305/323] locking: Drop might_resched() from
  might_sleep_no_state_check()
 X-NVConfidentiality: public
 
@@ -23,7 +23,7 @@ Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index 7b4fdd5b2f7b..4e88ae0b2578 100644
+index 7b4fdd5b2f7ba..4e88ae0b2578e 100644
 --- a/include/linux/kernel.h
 +++ b/include/linux/kernel.h
 @@ -225,7 +225,7 @@ extern void __cant_migrate(const char *file, int line);

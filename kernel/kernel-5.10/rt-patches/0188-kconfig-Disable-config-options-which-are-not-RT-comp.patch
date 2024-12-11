@@ -1,7 +1,7 @@
-From fd3ee35a2e680eeeb630f2b56534a392007afbab Mon Sep 17 00:00:00 2001
+From 2505bea65df1c69f98925a31ae2a11bd072f88b1 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sun, 24 Jul 2011 12:11:43 +0200
-Subject: [PATCH 188/322] kconfig: Disable config options which are not RT
+Subject: [PATCH 188/323] kconfig: Disable config options which are not RT
  compatible
 X-NVConfidentiality: public
 
@@ -14,10 +14,10 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  2 files changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/arch/Kconfig b/arch/Kconfig
-index 628e1e7fe302..8bbbca8839e1 100644
+index aa8fc5f8e7c8b..a428eb96943c7 100644
 --- a/arch/Kconfig
 +++ b/arch/Kconfig
-@@ -37,6 +37,7 @@ config OPROFILE
+@@ -45,6 +45,7 @@ config OPROFILE
  	tristate "OProfile system profiling"
  	depends on PROFILING
  	depends on HAVE_OPROFILE
@@ -26,7 +26,7 @@ index 628e1e7fe302..8bbbca8839e1 100644
  	select RING_BUFFER_ALLOW_SWAP
  	help
 diff --git a/mm/Kconfig b/mm/Kconfig
-index 8c49d09da214..c8cbcb5118b0 100644
+index 8c49d09da2141..c8cbcb5118b02 100644
 --- a/mm/Kconfig
 +++ b/mm/Kconfig
 @@ -387,7 +387,7 @@ config NOMMU_INITIAL_TRIM_EXCESS

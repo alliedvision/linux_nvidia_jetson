@@ -1,7 +1,7 @@
-From c1282e105ed28d41976043466a3201b06cd31065 Mon Sep 17 00:00:00 2001
+From 74fe2f0e2c67ce2ae4ef0badd49de97a8380a765 Mon Sep 17 00:00:00 2001
 From: Mike Galbraith <efault@gmx.de>
 Date: Tue, 24 Aug 2021 13:08:14 +0200
-Subject: [PATCH 298/322] mm, zsmalloc: Convert zsmalloc_handle.lock to
+Subject: [PATCH 298/323] mm, zsmalloc: Convert zsmalloc_handle.lock to
  spinlock_t
 X-NVConfidentiality: public
 
@@ -20,7 +20,7 @@ Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
  1 file changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/mm/zsmalloc.c b/mm/zsmalloc.c
-index 7dad2ff3e778..16ce2b05df90 100644
+index 7dad2ff3e7785..16ce2b05df904 100644
 --- a/mm/zsmalloc.c
 +++ b/mm/zsmalloc.c
 @@ -82,7 +82,7 @@

@@ -1,7 +1,7 @@
-From 65fb9225ff3d172f9297f89459628505d0e8c348 Mon Sep 17 00:00:00 2001
+From a0c291a4e5f9b880301f62adfd70f53471e30ec4 Mon Sep 17 00:00:00 2001
 From: Ingo Molnar <mingo@elte.hu>
 Date: Fri, 3 Jul 2009 08:29:57 -0500
-Subject: [PATCH 285/322] genirq: Disable irqpoll on -rt
+Subject: [PATCH 285/323] genirq: Disable irqpoll on -rt
 X-NVConfidentiality: public
 
 Creates long latencies for no value
@@ -13,7 +13,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  1 file changed, 8 insertions(+)
 
 diff --git a/kernel/irq/spurious.c b/kernel/irq/spurious.c
-index f865e5f4d382..dc7311dd74b1 100644
+index f865e5f4d3825..dc7311dd74b11 100644
 --- a/kernel/irq/spurious.c
 +++ b/kernel/irq/spurious.c
 @@ -443,6 +443,10 @@ MODULE_PARM_DESC(noirqdebug, "Disable irq lockup detection when true");

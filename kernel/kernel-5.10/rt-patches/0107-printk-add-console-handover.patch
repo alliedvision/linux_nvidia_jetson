@@ -1,7 +1,7 @@
-From d9bd660611059ea65ca3c0143d22d0c840ee837f Mon Sep 17 00:00:00 2001
+From 4e87b96941927f933465f16f77119729d357d803 Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 30 Nov 2020 01:42:09 +0106
-Subject: [PATCH 107/322] printk: add console handover
+Subject: [PATCH 107/323] printk: add console handover
 X-NVConfidentiality: public
 
 If earlyprintk is used, a boot console will print directly to the
@@ -26,7 +26,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/include/linux/console.h b/include/linux/console.h
-index 3e99359e0660..027278792eea 100644
+index 3e99359e06602..027278792eea4 100644
 --- a/include/linux/console.h
 +++ b/include/linux/console.h
 @@ -138,6 +138,7 @@ static inline int con_debug_leave(void)
@@ -38,7 +38,7 @@ index 3e99359e0660..027278792eea 100644
  struct console {
  	char	name[16];
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index 2b110b9ae34a..58da007d7c99 100644
+index d7b3cd47339a9..0cc452e7b1a1c 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
 @@ -1729,6 +1729,8 @@ static bool console_can_sync(struct console *con)
@@ -59,7 +59,7 @@ index 2b110b9ae34a..58da007d7c99 100644
  	else if (con->write && (con->flags & CON_BOOT) && !con->thread)
  		con->write(con, text, text_len);
  	else
-@@ -2832,8 +2836,10 @@ void register_console(struct console *newcon)
+@@ -2855,8 +2859,10 @@ void register_console(struct console *newcon)
  	 * the real console are the same physical device, it's annoying to
  	 * see the beginning boot messages twice
  	 */

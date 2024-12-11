@@ -1,7 +1,7 @@
-From b4160f73f15a0b7acc2a92549ad14acd1e24e5ca Mon Sep 17 00:00:00 2001
+From f78ec0e2a3bef476fbd387073d0304d44283e8a5 Mon Sep 17 00:00:00 2001
 From: Vitaly Wool <vitaly.wool@konsulko.com>
 Date: Mon, 14 Dec 2020 19:12:36 -0800
-Subject: [PATCH 001/322] z3fold: remove preempt disabled sections for RT
+Subject: [PATCH 001/323] z3fold: remove preempt disabled sections for RT
 X-NVConfidentiality: public
 
 Replace get_cpu_ptr() with migrate_disable()+this_cpu_ptr() so RT can take
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 10 insertions(+), 7 deletions(-)
 
 diff --git a/mm/z3fold.c b/mm/z3fold.c
-index 912ac9a64a15..f3d875fcaeb7 100644
+index 912ac9a64a155..f3d875fcaeb77 100644
 --- a/mm/z3fold.c
 +++ b/mm/z3fold.c
 @@ -623,14 +623,16 @@ static inline void add_to_unbuddied(struct z3fold_pool *pool,

@@ -661,8 +661,15 @@ static void tegra186_utmi_bias_pad_power_on(struct tegra_xusb_padctl *padctl)
 		value &= ~CYA_TRK_CODE_UPDATE_ON_IDLE;
 		padctl_writel(padctl, value, XUSB_PADCTL_USB2_BIAS_PAD_CTL2);
 	} else {
-		if (!padctl->is_xhci_iov)
+		if (!padctl->is_xhci_iov) {
+			/* Disable periodic tracking explicitly before disabling
+			 * the clock to avoid unstable connections
+			 */
+			value = padctl_readl(padctl, XUSB_PADCTL_USB2_BIAS_PAD_CTL2);
+			value &= ~(USB2_TRK_HW_MODE | CYA_TRK_CODE_UPDATE_ON_IDLE);
+			padctl_writel(padctl, value, XUSB_PADCTL_USB2_BIAS_PAD_CTL2);
 			clk_disable_unprepare(priv->usb2_trk_clk);
+		}
 	}
 
 	mutex_unlock(&padctl->lock);
@@ -1931,7 +1938,6 @@ const struct tegra_xusb_padctl_soc tegra239_xusb_padctl_soc = {
 	.num_supplies = ARRAY_SIZE(tegra239_xusb_padctl_supply_names),
 	.supports_gen2 = true,
 	.poll_trk_completed = true,
-	.trk_hw_mode = true,
 	.supports_vbus_id_map = true,
 };
 EXPORT_SYMBOL_GPL(tegra239_xusb_padctl_soc);
@@ -2018,7 +2024,6 @@ const struct tegra_xusb_padctl_soc tegra234_xusb_padctl_soc = {
 	.num_supplies = ARRAY_SIZE(tegra194_xusb_padctl_supply_names),
 	.supports_gen2 = true,
 	.poll_trk_completed = true,
-	.trk_hw_mode = true,
 	.supports_vbus_id_map = true,
 };
 EXPORT_SYMBOL_GPL(tegra234_xusb_padctl_soc);

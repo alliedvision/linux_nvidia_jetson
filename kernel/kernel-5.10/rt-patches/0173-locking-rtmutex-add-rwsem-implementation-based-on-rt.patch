@@ -1,7 +1,7 @@
-From 75975b446c5d29e9692b52b30edaef7986ad2d82 Mon Sep 17 00:00:00 2001
+From 6d1e09be440dff9c95d305ce82ff3290f01f6516 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 12 Oct 2017 17:28:34 +0200
-Subject: [PATCH 173/322] locking/rtmutex: add rwsem implementation based on
+Subject: [PATCH 173/323] locking/rtmutex: add rwsem implementation based on
  rtmutex
 X-NVConfidentiality: public
 
@@ -52,7 +52,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 diff --git a/include/linux/rwsem-rt.h b/include/linux/rwsem-rt.h
 new file mode 100644
-index 000000000000..0ba8aae9a198
+index 0000000000000..0ba8aae9a1983
 --- /dev/null
 +++ b/include/linux/rwsem-rt.h
 @@ -0,0 +1,70 @@
@@ -128,7 +128,7 @@ index 000000000000..0ba8aae9a198
 +#endif
 diff --git a/kernel/locking/rwsem-rt.c b/kernel/locking/rwsem-rt.c
 new file mode 100644
-index 000000000000..a0771c150041
+index 0000000000000..a0771c150041e
 --- /dev/null
 +++ b/kernel/locking/rwsem-rt.c
 @@ -0,0 +1,318 @@

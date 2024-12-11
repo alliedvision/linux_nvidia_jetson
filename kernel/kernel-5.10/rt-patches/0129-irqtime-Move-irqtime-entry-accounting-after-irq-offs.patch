@@ -1,7 +1,7 @@
-From fd6838af90f2cfcfa90cbe6507d842002a037ded Mon Sep 17 00:00:00 2001
+From 8958cb53c2d255ea3401261f66dc22ba59f82e95 Mon Sep 17 00:00:00 2001
 From: Frederic Weisbecker <frederic@kernel.org>
 Date: Wed, 2 Dec 2020 12:57:31 +0100
-Subject: [PATCH 129/322] irqtime: Move irqtime entry accounting after irq
+Subject: [PATCH 129/323] irqtime: Move irqtime entry accounting after irq
  offset incrementation
 X-NVConfidentiality: public
 
@@ -31,7 +31,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  4 files changed, 40 insertions(+), 22 deletions(-)
 
 diff --git a/include/linux/hardirq.h b/include/linux/hardirq.h
-index c35b71f8644a..0926e9ca4d85 100644
+index c35b71f8644aa..0926e9ca4d85f 100644
 --- a/include/linux/hardirq.h
 +++ b/include/linux/hardirq.h
 @@ -32,9 +32,9 @@ static __always_inline void rcu_irq_enter_check_tick(void)
@@ -56,7 +56,7 @@ index c35b71f8644a..0926e9ca4d85 100644
  	} while (0)
  
 diff --git a/include/linux/vtime.h b/include/linux/vtime.h
-index 6c9867419615..041d6524d144 100644
+index 6c98674196159..041d6524d144a 100644
 --- a/include/linux/vtime.h
 +++ b/include/linux/vtime.h
 @@ -83,32 +83,46 @@ static inline void vtime_init_idle(struct task_struct *tsk, int cpu) { }
@@ -117,7 +117,7 @@ index 6c9867419615..041d6524d144 100644
  
  #endif /* _LINUX_KERNEL_VTIME_H */
 diff --git a/kernel/sched/cputime.c b/kernel/sched/cputime.c
-index 60129af16ed6..02a7932c7383 100644
+index 60129af16ed69..02a7932c73838 100644
 --- a/kernel/sched/cputime.c
 +++ b/kernel/sched/cputime.c
 @@ -44,12 +44,13 @@ static void irqtime_account_delta(struct irqtime *irqtime, u64 delta,
@@ -174,7 +174,7 @@ index 60129af16ed6..02a7932c7383 100644
  	} else if (!IS_ENABLED(CONFIG_HAVE_VIRT_CPU_ACCOUNTING_IDLE) &&
  		   is_idle_task(tsk)) {
 diff --git a/kernel/softirq.c b/kernel/softirq.c
-index 617009ccd82c..b8f42b3ba8ca 100644
+index 617009ccd82ce..b8f42b3ba8ca1 100644
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
 @@ -315,10 +315,10 @@ asmlinkage __visible void __softirq_entry __do_softirq(void)

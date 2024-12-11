@@ -1,7 +1,6 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2017  Realtek Corporation.
- * Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -32,8 +31,8 @@
 /*#define DEBUG_VERSION	"1.3"*/ /*2016.04.28 YuChen*/
 /*#define DEBUG_VERSION	"1.4"*/ /*2017.03.13 Dino*/
 /*#define DEBUG_VERSION "2.0"*/ /*2018.01.10 Dino*/
-/* 2019.07.01 Move location of nhm_level msg in win_cli*/
-#define DEBUG_VERSION "3.8"
+/*2020.07.03 fix cck report bug due to 8723F coding error*/
+#define DEBUG_VERSION "4.6"
 
 /*@
  * ============================================================

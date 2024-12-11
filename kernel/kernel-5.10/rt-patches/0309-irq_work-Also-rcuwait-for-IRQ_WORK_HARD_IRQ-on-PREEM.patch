@@ -1,7 +1,7 @@
-From 03c7260cbc2459c33dab8b70bc271a88818cf296 Mon Sep 17 00:00:00 2001
+From dcd0f5ad8a37be63c0fc234196f7e8348b756312 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 24 Nov 2021 17:12:21 +0100
-Subject: [PATCH 309/322] irq_work: Also rcuwait for !IRQ_WORK_HARD_IRQ on
+Subject: [PATCH 309/323] irq_work: Also rcuwait for !IRQ_WORK_HARD_IRQ on
  PREEMPT_RT
 X-NVConfidentiality: public
 
@@ -21,7 +21,7 @@ Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
  2 files changed, 9 insertions(+), 2 deletions(-)
 
 diff --git a/include/linux/irq_work.h b/include/linux/irq_work.h
-index f551ba9c99d4..2c0059340871 100644
+index f551ba9c99d40..2c0059340871d 100644
 --- a/include/linux/irq_work.h
 +++ b/include/linux/irq_work.h
 @@ -55,6 +55,11 @@ static inline bool irq_work_is_busy(struct irq_work *work)
@@ -37,7 +37,7 @@ index f551ba9c99d4..2c0059340871 100644
  bool irq_work_queue_on(struct irq_work *work, int cpu);
  
 diff --git a/kernel/irq_work.c b/kernel/irq_work.c
-index 03d09d779ee1..cbec10c32ead 100644
+index 03d09d779ee12..cbec10c32eade 100644
 --- a/kernel/irq_work.c
 +++ b/kernel/irq_work.c
 @@ -211,7 +211,8 @@ void irq_work_single(void *arg)

@@ -1,7 +1,7 @@
-From 08c8ac21f8377b05567b14a6097ace36014ae788 Mon Sep 17 00:00:00 2001
+From fb0ba136d7c97456ca1e1c1d63d37282ef0cc9a9 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Fri, 17 Dec 2021 11:32:08 +0100
-Subject: [PATCH 311/322] stop_machine: Remove this_cpu_ptr() from
+Subject: [PATCH 311/323] stop_machine: Remove this_cpu_ptr() from
  print_stop_info().
 X-NVConfidentiality: public
 
@@ -17,7 +17,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/kernel/stop_machine.c b/kernel/stop_machine.c
-index dbf585cf4b9f..971d8acceaec 100644
+index dbf585cf4b9f8..971d8acceaecb 100644
 --- a/kernel/stop_machine.c
 +++ b/kernel/stop_machine.c
 @@ -51,7 +51,11 @@ static bool stop_machine_initialized = false;

@@ -1,7 +1,7 @@
-From a0c49ceaca6f2eb28cad435f19152061ded6b194 Mon Sep 17 00:00:00 2001
+From b99c96d940a9441199190e1d650489e9ee4c5c9b Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:18 +0100
-Subject: [PATCH 029/322] highmem: Provide generic variant of kmap_atomic*
+Subject: [PATCH 029/323] highmem: Provide generic variant of kmap_atomic*
 X-NVConfidentiality: public
 
 The kmap_atomic* interfaces in all architectures are pretty much the same
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  3 files changed, 211 insertions(+), 18 deletions(-)
 
 diff --git a/include/linux/highmem.h b/include/linux/highmem.h
-index 3297bfca78ed..14d5b4020c8c 100644
+index 3297bfca78edd..14d5b4020c8ca 100644
 --- a/include/linux/highmem.h
 +++ b/include/linux/highmem.h
 @@ -31,9 +31,16 @@ static inline void invalidate_kernel_vmap_range(void *vaddr, int size)
@@ -164,7 +164,7 @@ index 3297bfca78ed..14d5b4020c8c 100644
  #ifndef clear_user_highpage
  static inline void clear_user_highpage(struct page *page, unsigned long vaddr)
 diff --git a/mm/Kconfig b/mm/Kconfig
-index 390165ffbb0f..8c49d09da214 100644
+index 390165ffbb0fc..8c49d09da2141 100644
 --- a/mm/Kconfig
 +++ b/mm/Kconfig
 @@ -859,4 +859,7 @@ config ARCH_HAS_HUGEPD
@@ -176,7 +176,7 @@ index 390165ffbb0f..8c49d09da214 100644
 +
  endmenu
 diff --git a/mm/highmem.c b/mm/highmem.c
-index 6abfd762eee7..bb4ce13ee7e7 100644
+index 6abfd762eee73..bb4ce13ee7e77 100644
 --- a/mm/highmem.c
 +++ b/mm/highmem.c
 @@ -31,9 +31,11 @@

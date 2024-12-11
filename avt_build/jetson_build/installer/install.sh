@@ -30,7 +30,7 @@ NC='\033[0m'
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 REQ_MACHINE="NVidia Jetson"
-REQ_KERNEL="5.10.192"
+REQ_KERNEL="5.10.216"
 DEST="/boot"
 
 
@@ -79,7 +79,7 @@ inst() {
 
   echo "Installing packages:"
 
-  sudo apt-get $INSTALL_ARGS --reinstall install --yes avt-nvidia-l4t-bootloader avt-nvidia-l4t-kernel avt-nvidia-l4t-kernel-dtbs avt-nvidia-l4t-kernel-headers
+  sudo apt-get $INSTALL_ARGS --reinstall install --yes avt-nvidia-l4t-kernel avt-nvidia-l4t-kernel-dtbs avt-nvidia-l4t-kernel-headers
 }
 
 

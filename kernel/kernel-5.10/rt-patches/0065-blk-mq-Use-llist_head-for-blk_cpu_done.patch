@@ -1,7 +1,7 @@
-From a781bace0c77a5a6cc837bc183ade16e2af426a9 Mon Sep 17 00:00:00 2001
+From 5ceb1e998ab1ddf8d5890d2fe92879fdd65368d5 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Sat, 23 Jan 2021 21:10:27 +0100
-Subject: [PATCH 065/322] blk-mq: Use llist_head for blk_cpu_done
+Subject: [PATCH 065/323] blk-mq: Use llist_head for blk_cpu_done
 X-NVConfidentiality: public
 
 With llist_head it is possible to avoid the locking (the irq-off region)
@@ -27,7 +27,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 44 insertions(+), 59 deletions(-)
 
 diff --git a/block/blk-mq.c b/block/blk-mq.c
-index 52745c674542..10e18cbe5f5e 100644
+index 25c90da059957..d59127abeef64 100644
 --- a/block/blk-mq.c
 +++ b/block/blk-mq.c
 @@ -41,7 +41,7 @@
@@ -174,7 +174,7 @@ index 52745c674542..10e18cbe5f5e 100644
  }
  EXPORT_SYMBOL_GPL(blk_mq_complete_request_remote);
  
-@@ -3983,7 +3968,7 @@ static int __init blk_mq_init(void)
+@@ -3999,7 +3984,7 @@ static int __init blk_mq_init(void)
  	int i;
  
  	for_each_possible_cpu(i)
@@ -184,7 +184,7 @@ index 52745c674542..10e18cbe5f5e 100644
  
  	cpuhp_setup_state_nocalls(CPUHP_BLOCK_SOFTIRQ_DEAD,
 diff --git a/include/linux/blkdev.h b/include/linux/blkdev.h
-index 98fdf5a31fd6..b35193aec5e3 100644
+index a47e1aebaff24..fddff5d85d1eb 100644
 --- a/include/linux/blkdev.h
 +++ b/include/linux/blkdev.h
 @@ -161,7 +161,7 @@ struct request {

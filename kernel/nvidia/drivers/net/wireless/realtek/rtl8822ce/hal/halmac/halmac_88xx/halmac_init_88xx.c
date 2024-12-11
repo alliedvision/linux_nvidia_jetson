@@ -163,6 +163,7 @@ init_adapter_param_88xx(struct halmac_adapter *adapter)
 
 	adapter->pcie_refautok_en = 1;
 	adapter->pwr_off_flow_flag = 0;
+	adapter->curr_bw = HALMAC_BW_20;
 
 	adapter->rx_ignore_info.hdr_chk_mask = 1;
 	adapter->rx_ignore_info.fcs_chk_mask = 1;

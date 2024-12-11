@@ -102,8 +102,19 @@ static int ga10b_acr_patch_wpr_info_to_ucode(struct gk20a *g,
 			nvgpu_err(g, "invalid mem acr_falcon2_sysmem_desc");
 			return -EINVAL;
                 }
-		acr_sysmem_desc->nonwpr_ucode_blob_size =
+		/*
+		 * In T234 the CTXSW LS ucodes are encrypted. ACR will perform the
+		 * decryption and the decrypted content will be written back
+		 * into the same WPR location. So on recovery with LSPMU absence
+		 * and on warm boot case, to perform the authentication , the ucode
+		 * blob needs to be copied into the WPR from sysmem always.
+		 * Below are the LS ucodes authentication type
+		 * 	LSPMU - Encrypted and Signed
+		 */
+		if (!acr->is_lsf_encrypt_support) {
+			acr_sysmem_desc->nonwpr_ucode_blob_size =
 						RECOVERY_UCODE_BLOB_SIZE;
+		}
 	} else
 #endif
         {
@@ -121,8 +132,19 @@ static int ga10b_acr_patch_wpr_info_to_ucode(struct gk20a *g,
 				goto end;
 			}
 		} else {
-			acr_sysmem_desc->nonwpr_ucode_blob_size =
+			/*
+			 * In T234 the CTXSW LS ucodes are encrypted. ACR will perform the
+			 * decryption and the decrypted content will be written back
+			 * into the same WPR location. So on recovery with LSPMU absence
+			 * and on warm boot case, to perform the authentication , the ucode
+			 * blob needs to be copied into the WPR from sysmem always.
+			 * Below are the LS ucodes authentication type
+			 * 	LSPMU - Encrypted and Signed
+			 */
+			if (!acr->is_lsf_encrypt_support) {
+				acr_sysmem_desc->nonwpr_ucode_blob_size =
 						RECOVERY_UCODE_BLOB_SIZE;
+			}
 			goto load;
 		}
 

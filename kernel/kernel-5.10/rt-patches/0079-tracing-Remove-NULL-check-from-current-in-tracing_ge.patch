@@ -1,7 +1,7 @@
-From 69a88fcfd4c3f40cf12c316256ecdc81bdb61d34 Mon Sep 17 00:00:00 2001
+From f6d9fac1b36b00211b5efc6129fff703e4b5d06f Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 3 Feb 2021 11:05:26 -0500
-Subject: [PATCH 079/322] tracing: Remove NULL check from current in
+Subject: [PATCH 079/323] tracing: Remove NULL check from current in
  tracing_generic_entry_update().
 X-NVConfidentiality: public
 
@@ -23,7 +23,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/include/linux/trace_events.h b/include/linux/trace_events.h
-index 47790617f124..ced7e5ccadc3 100644
+index a6a77efb41b27..bac1a2f3cd4f4 100644
 --- a/include/linux/trace_events.h
 +++ b/include/linux/trace_events.h
 @@ -156,10 +156,8 @@ static inline void tracing_generic_entry_update(struct trace_entry *entry,

@@ -1,7 +1,7 @@
-From 3ae172e41e2eebe85129681e82d4b2b0f92b167f Mon Sep 17 00:00:00 2001
+From 69b587a6431f8a9676f1f0e4b600e859b264dcd2 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 28 Oct 2021 17:30:50 +0200
-Subject: [PATCH 303/322] fscache: Use only one fscache_object_cong_wait.
+Subject: [PATCH 303/323] fscache: Use only one fscache_object_cong_wait.
 X-NVConfidentiality: public
 
 In the commit mentioned below, fscache was converted from slow-work to
@@ -36,7 +36,7 @@ Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
  3 files changed, 5 insertions(+), 13 deletions(-)
 
 diff --git a/fs/fscache/internal.h b/fs/fscache/internal.h
-index 64aa552b296d..7dae569dafb9 100644
+index 64aa552b296d7..7dae569dafb9d 100644
 --- a/fs/fscache/internal.h
 +++ b/fs/fscache/internal.h
 @@ -95,7 +95,6 @@ extern unsigned fscache_debug;
@@ -48,7 +48,7 @@ index 64aa552b296d..7dae569dafb9 100644
  extern unsigned int fscache_hash(unsigned int salt, unsigned int *data, unsigned int n);
  
 diff --git a/fs/fscache/main.c b/fs/fscache/main.c
-index 4207f98e405f..85f8cf3a323d 100644
+index 4207f98e405fd..85f8cf3a323d5 100644
 --- a/fs/fscache/main.c
 +++ b/fs/fscache/main.c
 @@ -41,8 +41,6 @@ struct kobject *fscache_root;
@@ -79,7 +79,7 @@ index 4207f98e405f..85f8cf3a323d 100644
  	if (ret < 0)
  		goto error_proc;
 diff --git a/fs/fscache/object.c b/fs/fscache/object.c
-index cb2146e02cd5..55158f30d093 100644
+index cb2146e02cd54..55158f30d0935 100644
 --- a/fs/fscache/object.c
 +++ b/fs/fscache/object.c
 @@ -807,6 +807,8 @@ void fscache_object_destroy(struct fscache_object *object)

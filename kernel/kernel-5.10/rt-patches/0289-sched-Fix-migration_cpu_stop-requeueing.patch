@@ -1,7 +1,7 @@
-From e87e8107e2c31410833ee19733282e83ac59d71f Mon Sep 17 00:00:00 2001
+From a2cf2c49001a029b16a9a1eac312f4e19e968d50 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Tue, 8 Jun 2021 00:37:30 -0400
-Subject: [PATCH 289/322] sched: Fix migration_cpu_stop() requeueing
+Subject: [PATCH 289/323] sched: Fix migration_cpu_stop() requeueing
 X-NVConfidentiality: public
 
 commit 8a6edb5257e2a84720fe78cb179eca58ba76126f upstream.
@@ -64,7 +64,7 @@ Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
  1 file changed, 28 insertions(+), 11 deletions(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index e7f924d6ba54..cb82ce8532f1 100644
+index c34c5213dd8f5..f53d89b946679 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1974,6 +1974,24 @@ static int migration_cpu_stop(void *data)

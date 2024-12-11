@@ -1,7 +1,7 @@
-From c6ad35bc43b0378b21d4c088378a1a79c73dd308 Mon Sep 17 00:00:00 2001
+From d6a5d74ded9610b07282f397221f6955673c5929 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 6 Oct 2020 13:07:17 +0200
-Subject: [PATCH 177/322] locking/rtmutex: Use custom scheduling function for
+Subject: [PATCH 177/323] locking/rtmutex: Use custom scheduling function for
  spin-schedule()
 X-NVConfidentiality: public
 
@@ -40,7 +40,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  7 files changed, 32 insertions(+), 21 deletions(-)
 
 diff --git a/arch/arm64/include/asm/preempt.h b/arch/arm64/include/asm/preempt.h
-index e83f0982b99c..f1486b32502c 100644
+index e83f0982b99c1..f1486b32502c1 100644
 --- a/arch/arm64/include/asm/preempt.h
 +++ b/arch/arm64/include/asm/preempt.h
 @@ -81,6 +81,9 @@ static inline bool should_resched(int preempt_offset)
@@ -54,7 +54,7 @@ index e83f0982b99c..f1486b32502c 100644
  void preempt_schedule_notrace(void);
  #define __preempt_schedule_notrace() preempt_schedule_notrace()
 diff --git a/arch/x86/include/asm/preempt.h b/arch/x86/include/asm/preempt.h
-index a334dd0d7c42..50e0c0ab7b97 100644
+index a334dd0d7c42c..50e0c0ab7b97b 100644
 --- a/arch/x86/include/asm/preempt.h
 +++ b/arch/x86/include/asm/preempt.h
 @@ -103,6 +103,9 @@ static __always_inline bool should_resched(int preempt_offset)
@@ -68,7 +68,7 @@ index a334dd0d7c42..50e0c0ab7b97 100644
  # define __preempt_schedule() \
  	asm volatile ("call preempt_schedule_thunk" : ASM_CALL_CONSTRAINT)
 diff --git a/include/asm-generic/preempt.h b/include/asm-generic/preempt.h
-index b4d43a4af5f7..ac255e889462 100644
+index b4d43a4af5f79..ac255e8894629 100644
 --- a/include/asm-generic/preempt.h
 +++ b/include/asm-generic/preempt.h
 @@ -79,6 +79,9 @@ static __always_inline bool should_resched(int preempt_offset)
@@ -82,7 +82,7 @@ index b4d43a4af5f7..ac255e889462 100644
  #define __preempt_schedule() preempt_schedule()
  extern asmlinkage void preempt_schedule_notrace(void);
 diff --git a/include/linux/sched/rt.h b/include/linux/sched/rt.h
-index e5af028c08b4..994c25640e15 100644
+index e5af028c08b49..994c25640e156 100644
 --- a/include/linux/sched/rt.h
 +++ b/include/linux/sched/rt.h
 @@ -39,20 +39,12 @@ static inline struct task_struct *rt_mutex_get_top_task(struct task_struct *p)
@@ -107,7 +107,7 @@ index e5af028c08b4..994c25640e15 100644
  
  extern void normalize_rt_tasks(void);
 diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
-index c095d1b92f70..2fe178651254 100644
+index c095d1b92f702..2fe1786512543 100644
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
 @@ -1067,7 +1067,7 @@ void __sched rt_spin_lock_slowlock_locked(struct rt_mutex *lock,
@@ -120,7 +120,7 @@ index c095d1b92f70..2fe178651254 100644
  		raw_spin_lock_irqsave(&lock->wait_lock, flags);
  
 diff --git a/kernel/locking/rwlock-rt.c b/kernel/locking/rwlock-rt.c
-index 1ee16b8fedd7..16be7111aae7 100644
+index 1ee16b8fedd77..16be7111aae71 100644
 --- a/kernel/locking/rwlock-rt.c
 +++ b/kernel/locking/rwlock-rt.c
 @@ -211,7 +211,7 @@ static void __write_rt_lock(struct rt_rw_lock *lock)
@@ -133,7 +133,7 @@ index 1ee16b8fedd7..16be7111aae7 100644
  		raw_spin_lock_irqsave(&m->wait_lock, flags);
  
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index a3a997262a6b..0b526c12d6b2 100644
+index cdfe18ad17826..e59b13eba15fd 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -5003,7 +5003,7 @@ pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)

@@ -1,7 +1,7 @@
-From 9017332055c031f53a86480c0e4674ef91e90d50 Mon Sep 17 00:00:00 2001
+From 56e43ca71cf3c54bdd15dda062e41157705f0a00 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 29 Aug 2013 18:21:04 +0200
-Subject: [PATCH 223/322] ptrace: fix ptrace vs tasklist_lock race
+Subject: [PATCH 223/323] ptrace: fix ptrace vs tasklist_lock race
 X-NVConfidentiality: public
 
 As explained by Alexander Fyodorov <halcy@yandex.ru>:
@@ -31,7 +31,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  3 files changed, 68 insertions(+), 7 deletions(-)
 
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 3634b00c3662..46bc6101b8ee 100644
+index d259126f46cf4..bd0c9c633438a 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -112,12 +112,8 @@ struct io_uring_task;
@@ -47,7 +47,7 @@ index 3634b00c3662..46bc6101b8ee 100644
  #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
  
  /*
-@@ -1884,6 +1880,51 @@ static inline int test_tsk_need_resched(struct task_struct *tsk)
+@@ -1886,6 +1882,51 @@ static inline int test_tsk_need_resched(struct task_struct *tsk)
  	return unlikely(test_tsk_thread_flag(tsk,TIF_NEED_RESCHED));
  }
  
@@ -100,7 +100,7 @@ index 3634b00c3662..46bc6101b8ee 100644
   * cond_resched() and cond_resched_lock(): latency reduction via
   * explicit rescheduling in places that are safe. The return
 diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index aab480e24bd6..71acb6341e63 100644
+index aab480e24bd60..71acb6341e639 100644
 --- a/kernel/ptrace.c
 +++ b/kernel/ptrace.c
 @@ -196,7 +196,14 @@ static bool ptrace_freeze_traced(struct task_struct *task)
@@ -120,7 +120,7 @@ index aab480e24bd6..71acb6341e63 100644
  	}
  	spin_unlock_irq(&task->sighand->siglock);
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index fe7ee4893ba0..66fc90f98288 100644
+index 4fe1208a99bd0..595c928cd234d 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -2587,6 +2587,18 @@ int migrate_swap(struct task_struct *cur, struct task_struct *p,

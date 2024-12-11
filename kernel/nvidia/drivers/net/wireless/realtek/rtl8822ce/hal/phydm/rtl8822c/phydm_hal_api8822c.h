@@ -26,8 +26,8 @@
 #define __INC_PHYDM_API_H_8822C__
 
 #if (RTL8822C_SUPPORT)
-/* 2019.06.26: Add bbrstb w/o 3-wires in LPS flow*/
-#define PHY_CONFIG_VERSION_8822C "1.5.5"
+/*2021.02.05: Let the auto_nbi_detect th be 0x1 due to technicolor issue*/
+#define PHY_CONFIG_VERSION_8822C "1.8.9"
 /*#define CONFIG_TXAGC_DEBUG_8822C*/
 
 #define INVALID_RF_DATA 0xffffffff
@@ -125,7 +125,7 @@ boolean config_phydm_switch_channel_bw_8822c(struct dm_struct *dm,
 void phydm_i_only_setting_8822c(struct dm_struct *dm, boolean en_i_only,
 				boolean en_before_cca);
 
-void phydm_1rcca_setting_8822c(struct dm_struct *dm, boolean en_1rcca);
+boolean phydm_1rcca_setting_8822c(struct dm_struct *dm, boolean en_1rcca);
 
 void phydm_invld_pkt_setting_8822c(struct dm_struct *dm, boolean en_invld_pkt);
 
@@ -135,10 +135,14 @@ void phydm_ch_smooth_setting_8822c(struct dm_struct *dm, boolean en_ch_smooth);
 
 u16 phydm_get_dis_dpd_by_rate_8822c(struct dm_struct *dm);
 
+void phydm_set_auto_nbi_8822c(struct dm_struct *dm, boolean en_auto_nbi);
+
 boolean config_phydm_parameter_init_8822c(struct dm_struct *dm,
 					  enum odm_parameter_init type);
 
 boolean phydm_chk_bb_state_idle_8822c(struct dm_struct *dm);
+
+u16 phydm_get_gpio_setting_by_rfe_ctrl_8822c(struct dm_struct *dm);
 
 #if CONFIG_POWERSAVING
 boolean phydm_8822c_lps(struct dm_struct *dm, boolean enable_lps);

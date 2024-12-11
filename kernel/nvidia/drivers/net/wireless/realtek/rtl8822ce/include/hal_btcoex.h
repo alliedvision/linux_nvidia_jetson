@@ -49,6 +49,7 @@ void hal_btcoex_ConnectNotify(PADAPTER padapter, u8 action);
 void hal_btcoex_MediaStatusNotify(PADAPTER padapter, u8 mediaStatus);
 void hal_btcoex_SpecialPacketNotify(PADAPTER padapter, u8 pktType);
 void hal_btcoex_IQKNotify(PADAPTER padapter, u8 state);
+void hal_btcoex_WLRFKNotify(PADAPTER padapter, u8 path, u8 type, u8 state);
 void hal_btcoex_BtInfoNotify(PADAPTER padapter, u8 length, u8 *tmpBuf);
 void hal_btcoex_BtMpRptNotify(PADAPTER padapter, u8 length, u8 *tmpBuf);
 void hal_btcoex_SuspendNotify(PADAPTER padapter, u8 state);

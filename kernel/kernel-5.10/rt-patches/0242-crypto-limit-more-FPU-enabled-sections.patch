@@ -1,7 +1,7 @@
-From aefa85f7f1ac53cd9d169df3ae05b4ef2e1017d5 Mon Sep 17 00:00:00 2001
+From 926b14a6f91ee554c2000cd7d7e19d91cd271759 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 30 Nov 2017 13:40:10 +0100
-Subject: [PATCH 242/322] crypto: limit more FPU-enabled sections
+Subject: [PATCH 242/323] crypto: limit more FPU-enabled sections
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -35,7 +35,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 13 insertions(+)
 
 diff --git a/arch/x86/include/asm/fpu/api.h b/arch/x86/include/asm/fpu/api.h
-index ad2fee785310..d31b0886592a 100644
+index ad2fee7853108..d31b0886592a1 100644
 --- a/arch/x86/include/asm/fpu/api.h
 +++ b/arch/x86/include/asm/fpu/api.h
 @@ -28,6 +28,7 @@ extern void kernel_fpu_begin_mask(unsigned int kfpu_mask);
@@ -47,7 +47,7 @@ index ad2fee785310..d31b0886592a 100644
  /* Code that is unaware of kernel_fpu_begin_mask() can use this */
  static inline void kernel_fpu_begin(void)
 diff --git a/arch/x86/kernel/fpu/core.c b/arch/x86/kernel/fpu/core.c
-index 835b948095cd..8cfc2f972fe5 100644
+index 835b948095cde..8cfc2f972fe56 100644
 --- a/arch/x86/kernel/fpu/core.c
 +++ b/arch/x86/kernel/fpu/core.c
 @@ -144,6 +144,18 @@ void kernel_fpu_end(void)

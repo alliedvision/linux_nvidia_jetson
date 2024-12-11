@@ -1,7 +1,7 @@
-From 20cc30ca45b7af5d9bcb1e814d1ac63d55d71840 Mon Sep 17 00:00:00 2001
+From 908b7847f13302ce5d59d903b1f05fff02d140ed Mon Sep 17 00:00:00 2001
 From: Yajun Deng <yajun.deng@linux.dev>
 Date: Wed, 3 Aug 2022 14:24:30 +0800
-Subject: [PATCH 314/322] locking/rtmutex: switch to EXPORT_SYMBOL() for
+Subject: [PATCH 314/323] locking/rtmutex: switch to EXPORT_SYMBOL() for
  ww_mutex_lock{,_interruptible}()
 X-NVConfidentiality: public
 
@@ -17,7 +17,7 @@ Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
-index 31b374d36d04..b110fc57f733 100644
+index 31b374d36d04b..b110fc57f7330 100644
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
 @@ -2513,7 +2513,7 @@ ww_mutex_lock_interruptible(struct ww_mutex *lock, struct ww_acquire_ctx *ctx)

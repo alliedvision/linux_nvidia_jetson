@@ -1,7 +1,7 @@
-From a03c9aa7081809e1825124b3526e69244aa9f2e8 Mon Sep 17 00:00:00 2001
+From 1c2f49f4e7cf55c4a09a3b3150d376bfd02a02f6 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 23 Oct 2020 12:12:09 +0200
-Subject: [PATCH 012/322] sched/core: Make migrate disable and CPU hotplug
+Subject: [PATCH 012/323] sched/core: Make migrate disable and CPU hotplug
  cooperative
 X-NVConfidentiality: public
 
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 34 insertions(+), 6 deletions(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 6e786b89265b..b007e9720753 100644
+index f51ed9a037b9c..35da84c82c60d 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1735,10 +1735,17 @@ static void migrate_disable_switch(struct rq *rq, struct task_struct *p)
@@ -75,7 +75,7 @@ index 6e786b89265b..b007e9720753 100644
  #endif
  
  static void
-@@ -7071,15 +7089,20 @@ static void balance_push(struct rq *rq)
+@@ -7066,15 +7084,20 @@ static void balance_push(struct rq *rq)
  	 * Both the cpu-hotplug and stop task are in this case and are
  	 * required to complete the hotplug process.
  	 */
@@ -98,7 +98,7 @@ index 6e786b89265b..b007e9720753 100644
  			raw_spin_unlock(&rq->lock);
  			rcuwait_wake_up(&rq->hotplug_wait);
  			raw_spin_lock(&rq->lock);
-@@ -7126,7 +7149,8 @@ static void balance_hotplug_wait(void)
+@@ -7121,7 +7144,8 @@ static void balance_hotplug_wait(void)
  {
  	struct rq *rq = this_rq();
  
@@ -108,7 +108,7 @@ index 6e786b89265b..b007e9720753 100644
  			   TASK_UNINTERRUPTIBLE);
  }
  
-@@ -7373,7 +7397,7 @@ int sched_cpu_dying(unsigned int cpu)
+@@ -7368,7 +7392,7 @@ int sched_cpu_dying(unsigned int cpu)
  	sched_tick_stop(cpu);
  
  	rq_lock_irqsave(rq, &rf);
@@ -118,7 +118,7 @@ index 6e786b89265b..b007e9720753 100644
  
  	calc_load_migrate(rq);
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index d497d442ef9e..b302284734fe 100644
+index d0ec695c77e8a..2af7cb9e85b0e 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
 @@ -1058,6 +1058,10 @@ struct rq {

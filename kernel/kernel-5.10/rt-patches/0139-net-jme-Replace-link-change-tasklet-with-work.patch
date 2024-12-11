@@ -1,7 +1,7 @@
-From 0673d81db66df12636e71dbd38d833b92e524faf Mon Sep 17 00:00:00 2001
+From bcb02e0909e439442d680bd4fe781b629a57462c Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 9 Mar 2021 09:42:11 +0100
-Subject: [PATCH 139/322] net: jme: Replace link-change tasklet with work
+Subject: [PATCH 139/323] net: jme: Replace link-change tasklet with work
 X-NVConfidentiality: public
 
 The link change tasklet disables the tasklets for tx/rx processing while
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
-index e9efe074edc1..f1b9284e0bea 100644
+index e9efe074edc11..f1b9284e0bea8 100644
 --- a/drivers/net/ethernet/jme.c
 +++ b/drivers/net/ethernet/jme.c
 @@ -1265,9 +1265,9 @@ jme_stop_shutdown_timer(struct jme_adapter *jme)
@@ -71,7 +71,7 @@ index e9efe074edc1..f1b9284e0bea 100644
  
  	jme->reg_ghc = 0;
 diff --git a/drivers/net/ethernet/jme.h b/drivers/net/ethernet/jme.h
-index a2c3b00d939d..2af76329b4a2 100644
+index a2c3b00d939d0..2af76329b4a27 100644
 --- a/drivers/net/ethernet/jme.h
 +++ b/drivers/net/ethernet/jme.h
 @@ -411,7 +411,7 @@ struct jme_adapter {

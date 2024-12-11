@@ -1,7 +1,7 @@
-From 4ec0a41ee176b14d7e9f2fcb3a147695c461b421 Mon Sep 17 00:00:00 2001
+From 37409af2568184a89256dd2d63d4ce8566b24c37 Mon Sep 17 00:00:00 2001
 From: Grygorii Strashko <Grygorii.Strashko@linaro.org>
 Date: Tue, 21 Jul 2015 19:43:56 +0300
-Subject: [PATCH 222/322] pid.h: include atomic.h
+Subject: [PATCH 222/323] pid.h: include atomic.h
 X-NVConfidentiality: public
 
 This patch fixes build error:
@@ -27,7 +27,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+)
 
 diff --git a/include/linux/pid.h b/include/linux/pid.h
-index fa10acb8d6a4..2f86f84e9fc1 100644
+index fa10acb8d6a42..2f86f84e9fc1a 100644
 --- a/include/linux/pid.h
 +++ b/include/linux/pid.h
 @@ -3,6 +3,7 @@

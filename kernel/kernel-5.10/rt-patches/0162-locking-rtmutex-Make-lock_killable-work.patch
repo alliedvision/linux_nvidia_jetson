@@ -1,7 +1,7 @@
-From be17225a783367cc4d0292a22da43ef43141d5f2 Mon Sep 17 00:00:00 2001
+From 54ab551bf49a64a3da927a7fd768d499b452fa91 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sat, 1 Apr 2017 12:50:59 +0200
-Subject: [PATCH 162/322] locking/rtmutex: Make lock_killable work
+Subject: [PATCH 162/323] locking/rtmutex: Make lock_killable work
 X-NVConfidentiality: public
 
 Locking an rt mutex killable does not work because signal handling is
@@ -16,7 +16,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 7 insertions(+), 12 deletions(-)
 
 diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
-index d8755d5ef227..c3f3c23fefef 100644
+index d8755d5ef2277..c3f3c23fefef8 100644
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
 @@ -1197,18 +1197,13 @@ __rt_mutex_slowlock(struct rt_mutex *lock, int state,

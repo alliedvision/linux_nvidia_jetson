@@ -30,6 +30,7 @@ def add_arguments(parser):
   parser.add_argument('--debug', '-d', default=False, action='store_true', help="Enable debug output (includes verbose output)")
   parser.add_argument('--install-missing',  default=False, action='store_true', help="Install missing host packages")
   parser.add_argument('--sign','-s',default=None,type=str, help="Sign debian repository with given key")
+  parser.add_argument('--l4t-version', default=False, action='store_true', help='Show current jetson linux version and exit')
 
 def build_dir(args):
   b_dir = args.build_dir
@@ -87,6 +88,10 @@ def main():
 
 
     args = parser.parse_args()
+
+    if args.l4t_version:
+      print(board.L4T_VERSION)
+      exit()
 
     logging.basicConfig(level=logging.DEBUG, filename=args.logfile, filemode='w')
     console = logging.StreamHandler()

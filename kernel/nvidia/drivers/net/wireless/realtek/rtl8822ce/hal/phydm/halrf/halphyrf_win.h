@@ -108,7 +108,7 @@ odm_txpowertracking_callback_thermal_meter(
 #endif
 );
 
-#if (RTL8822C_SUPPORT == 1 || RTL8814B_SUPPORT == 1)
+#if (RTL8822C_SUPPORT == 1 || RTL8814B_SUPPORT == 1 || RTL8814C_SUPPORT == 1)
 void
 odm_txpowertracking_new_callback_thermal_meter(void *dm_void);
 #endif

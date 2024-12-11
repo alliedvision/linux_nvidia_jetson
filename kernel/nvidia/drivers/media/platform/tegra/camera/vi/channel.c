@@ -2497,16 +2497,16 @@ static long tegra_channel_default_ioctl(struct file *file, void *fh,
 		case VIDIOC_STREAMOFF_EX: {
 			struct v4l2_streamoff_ex *streamoff = arg;
 			int ret = 0;
-			unsigned long curr_timeout = chan->timeout;
+			unsigned long curr_timeout = chan->capture_timeout_ms;
 
-			chan->timeout = msecs_to_jiffies(streamoff->timeout);
+			chan->capture_timeout_ms = msecs_to_jiffies(streamoff->timeout);
 
 			ret = vb2_core_streamoff(&chan->queue, chan->queue.type);
 			sysfs_notify(&vdev->dev.kobj, NULL, "streamoff");
 
 			/* Get back to the default timeout value */
-			chan->timeout = curr_timeout;
-			/* Reset current values in order to reset the displayed current frame reate after stop*/
+			chan->capture_timeout_ms = curr_timeout;
+			/* Reset capture_timeout_ms values in order to reset the displayed current frame reate after stop*/
 			chan->stream_stats.current_frame_count = 0;
 			chan->stream_stats.current_frame_interval = 0;
 
@@ -3121,7 +3121,7 @@ int tegra_channel_init(struct tegra_channel *chan)
 	}
 
 	chan->incomplete_flag = false;
-	chan->timeout = msecs_to_jiffies(CAPTURE_TIMEOUT_MS);
+	chan->capture_timeout_ms = msecs_to_jiffies(CAPTURE_TIMEOUT_MS);
 	chan->created_bufs = 0;
 
 	chan->init_done = true;

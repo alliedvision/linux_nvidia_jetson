@@ -685,7 +685,6 @@ static nve32_t mgbe_config_ptp_rxq(struct osi_core_priv_data *const osi_core,
 {
 	nveu8_t *base = osi_core->base;
 	nveu32_t value = 0U;
-	nveu32_t i = 0U;
 
 	/* Validate the RX queue index argument */
 	if (rxq_idx >= OSI_MGBE_MAX_NUM_QUEUES) {
@@ -700,20 +699,6 @@ static nve32_t mgbe_config_ptp_rxq(struct osi_core_priv_data *const osi_core,
 		OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_INVALID,
 			"Invalid enable input\n",
 			enable);
-		return -1;
-	}
-
-	/* Validate PTP RX queue enable */
-	for (i = 0; i < osi_core->num_mtl_queues; i++) {
-		if (osi_core->mtl_queues[i] == rxq_idx) {
-			/* Given PTP RX queue is enabled */
-			break;
-		}
-	}
-	if (i == osi_core->num_mtl_queues) {
-		OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_INVALID,
-			"PTP RX queue not enabled\n",
-			rxq_idx);
 		return -1;
 	}
 
@@ -1179,10 +1164,11 @@ done:
  * @retval 0 on success
  * @retval -1 on failure.
  */
-static nve32_t mgbe_configure_mtl_queue(struct osi_core_priv_data *osi_core,
-					nveu32_t hw_qinx)
+static nve32_t mgbe_configure_mtl_queue(struct osi_core_priv_data *osi_core)
 {
-	nveu32_t qinx = hw_qinx & 0xFU;
+	const struct core_local *l_core = (struct core_local *)(void *)osi_core;
+	nveu32_t qinx = 0U;
+	nveu32_t i = 0U;
 	/*
 	 * Total available Rx queue size is 192KB.
 	 * Below is the destribution among the Rx queueu -
@@ -1197,10 +1183,6 @@ static nve32_t mgbe_configure_mtl_queue(struct osi_core_priv_data *osi_core,
 	const nveu32_t rx_fifo_sz[OSI_MGBE_MAX_NUM_QUEUES] = {
 		FIFO_SZ(160U), FIFO_SZ(2U), FIFO_SZ(2U), FIFO_SZ(2U), FIFO_SZ(2U),
 		FIFO_SZ(2U), FIFO_SZ(2U), FIFO_SZ(2U), FIFO_SZ(2U), FIFO_SZ(16U),
-	};
-	const nveu32_t tx_fifo_sz[OSI_MGBE_MAX_NUM_QUEUES] = {
-		TX_FIFO_SZ, TX_FIFO_SZ, TX_FIFO_SZ, TX_FIFO_SZ, TX_FIFO_SZ,
-		TX_FIFO_SZ, TX_FIFO_SZ, TX_FIFO_SZ, TX_FIFO_SZ, TX_FIFO_SZ,
 	};
 	const nveu32_t rfd_rfa[OSI_MGBE_MAX_NUM_QUEUES] = {
 		FULL_MINUS_32_K,
@@ -1217,95 +1199,108 @@ static nve32_t mgbe_configure_mtl_queue(struct osi_core_priv_data *osi_core,
 	nveu32_t value = 0;
 	nve32_t ret = 0;
 
-	/* Program ETSALG (802.1Qaz) and RAA in MTL_Operation_Mode
-	 * register to initialize the MTL operation in case
-	 * of multiple Tx and Rx queues default : ETSALG WRR RAA SP
-	 */
+	for (i = 0U; i < osi_core->num_mtl_queues; i++) {
+		qinx = osi_core->mtl_queues[i];
+		/* Program ETSALG (802.1Qaz) and RAA in MTL_Operation_Mode
+		 * register to initialize the MTL operation in case
+		 * of multiple Tx and Rx queues default : ETSALG WRR RAA SP
+		 */
 
-	/* Program the priorities mapped to the Selected Traffic
-	 * Classes in MTL_TC_Prty_Map0-3 registers. This register is
-	 * to tell traffic class x should be blocked from transmitting
-	 * for the specified pause time when a PFC packet is received
-	 * with priorities matching the priorities programmed in this field
-	 * default: 0x0
-	 */
+		/* Program the priorities mapped to the Selected Traffic
+		 * Classes in MTL_TC_Prty_Map0-3 registers. This register is
+		 * to tell traffic class x should be blocked from transmitting
+		 * for the specified pause time when a PFC packet is received
+		 * with priorities matching the priorities programmed in this field
+		 * default: 0x0
+		 */
 
-	/* Program the Transmit Selection Algorithm (TSA) in
-	 * MTL_TC[n]_ETS_Control register for all the Selected
-	 * Traffic Classes (n=0, 1, â€¦, Max selected number of TCs - 1)
-	 * Setting related to CBS will come here for TC.
-	 * default: 0x0 SP
-	 */
-	ret = hw_flush_mtl_tx_queue(osi_core, qinx);
-	if (ret < 0) {
-		goto fail;
+		/* Program the Transmit Selection Algorithm (TSA) in
+		 * MTL_TC[n]_ETS_Control register for all the Selected
+		 * Traffic Classes (n=0, 1, â€¦, Max selected number of TCs - 1)
+		 * Setting related to CBS will come here for TC.
+		 * default: 0x0 SP
+		 */
+		ret = hw_flush_mtl_tx_queue(osi_core, qinx);
+		if (ret < 0)
+			goto fail;
+
+		if (osi_unlikely((qinx >= OSI_MGBE_MAX_NUM_QUEUES) ||
+				(osi_core->tc[qinx] >= OSI_MAX_TC_NUM))) {
+			OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_INVALID,
+				     "Incorrect queues/TC number\n", 0ULL);
+			ret = -1;
+			goto fail;
+		}
+
+		value = (l_core->tx_fifosz_perq << MGBE_MTL_TXQ_SIZE_SHIFT);
+		/* Enable Store and Forward mode */
+		value |= MGBE_MTL_TSF;
+		/*TTC  not applicable for TX*/
+		/* Enable TxQ */
+		value |= MGBE_MTL_TXQEN;
+		value |= (osi_core->tc[qinx] << MGBE_MTL_CHX_TX_OP_MODE_Q2TC_SH);
+		osi_writela(osi_core, value, (nveu8_t *)
+			    osi_core->base + MGBE_MTL_CHX_TX_OP_MODE(qinx));
+
+		/* Transmit Queue weight, all TX weights are equal */
+		value = osi_readla(osi_core, (nveu8_t *)osi_core->base +
+				   MGBE_MTL_TCQ_QW(qinx));
+		value |= MGBE_MTL_TCQ_QW_ISCQW;
+		osi_writela(osi_core, value, (nveu8_t *)osi_core->base +
+			    MGBE_MTL_TCQ_QW(qinx));
+
+		/* Default ETS tx selection algo */
+		value = osi_readla(osi_core, (nveu8_t *)osi_core->base +
+				   MGBE_MTL_TCQ_ETS_CR(osi_core->tc[qinx]));
+		value &= ~MGBE_MTL_TCQ_ETS_CR_AVALG;
+		value |= OSI_MGBE_TXQ_AVALG_ETS;
+		osi_writela(osi_core, value, (nveu8_t *)osi_core->base +
+			    MGBE_MTL_TCQ_ETS_CR(osi_core->tc[qinx]));
 	}
 
-	if (osi_unlikely((qinx >= OSI_MGBE_MAX_NUM_QUEUES) ||
-			 (osi_core->tc[qinx] >= OSI_MAX_TC_NUM))) {
-		OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_INVALID,
-				"Incorrect queues/TC number\n", 0ULL);
-		ret = -1;
-		goto fail;
+	for (i = 0U; i < OSI_MGBE_MAX_NUM_QUEUES; i++) {
+		/* read RX Q0 Operating Mode Register */
+		value = osi_readla(osi_core, (nveu8_t *)osi_core->base +
+				   MGBE_MTL_CHX_RX_OP_MODE(i));
+		value |= (rx_fifo_sz[i] << MGBE_MTL_RXQ_SIZE_SHIFT);
+		/* Enable Store and Forward mode */
+		value |= MGBE_MTL_RSF;
+		/* Enable HW flow control */
+		value |= MGBE_MTL_RXQ_OP_MODE_EHFC;
+
+		osi_writela(osi_core, value, (nveu8_t *)osi_core->base +
+			    MGBE_MTL_CHX_RX_OP_MODE(i));
+
+		/* Update RFA and RFD
+		 * RFA: Threshold for Activating Flow Control
+		 * RFD: Threshold for Deactivating Flow Control
+		 */
+		value = osi_readla(osi_core, (nveu8_t *)osi_core->base +
+				   MGBE_MTL_RXQ_FLOW_CTRL(i));
+		value &= ~MGBE_MTL_RXQ_OP_MODE_RFD_MASK;
+		value &= ~MGBE_MTL_RXQ_OP_MODE_RFA_MASK;
+		value |= (rfd_rfa[i] << MGBE_MTL_RXQ_OP_MODE_RFD_SHIFT) &
+			 MGBE_MTL_RXQ_OP_MODE_RFD_MASK;
+		value |= (rfd_rfa[i] << MGBE_MTL_RXQ_OP_MODE_RFA_SHIFT) &
+			 MGBE_MTL_RXQ_OP_MODE_RFA_MASK;
+		osi_writela(osi_core, value, (nveu8_t *)osi_core->base +
+			    MGBE_MTL_RXQ_FLOW_CTRL(i));
+
+
+		/* Enable Rx Queue Control */
+		value = osi_readla(osi_core, (nveu8_t *)osi_core->base + MGBE_MAC_RQC0R);
+		value |= ((osi_core->rxq_ctrl[i] & MGBE_MAC_RXQC0_RXQEN_MASK) <<
+			  (MGBE_MAC_RXQC0_RXQEN_SHIFT(i)));
+		osi_writela(osi_core, value, (nveu8_t *)osi_core->base + MGBE_MAC_RQC0R);
+
+		/* Enable by default to configure forward error packets.
+		 * Since this is a local function this will always return success,
+		 * so no need to check for return value
+		 */
+		ret = hw_config_fw_err_pkts(osi_core, i, OSI_ENABLE);
+		if (ret < 0)
+			goto fail;
 	}
-
-	value = (tx_fifo_sz[qinx] << MGBE_MTL_TXQ_SIZE_SHIFT);
-	/* Enable Store and Forward mode */
-	value |= MGBE_MTL_TSF;
-	/*TTC  not applicable for TX*/
-	/* Enable TxQ */
-	value |= MGBE_MTL_TXQEN;
-	value |= (osi_core->tc[qinx] << MGBE_MTL_CHX_TX_OP_MODE_Q2TC_SH);
-	osi_writela(osi_core, value, (nveu8_t *)
-		   osi_core->base + MGBE_MTL_CHX_TX_OP_MODE(qinx));
-
-	/* read RX Q0 Operating Mode Register */
-	value = osi_readla(osi_core, (nveu8_t *)osi_core->base +
-			  MGBE_MTL_CHX_RX_OP_MODE(qinx));
-	value |= (rx_fifo_sz[qinx] << MGBE_MTL_RXQ_SIZE_SHIFT);
-	/* Enable Store and Forward mode */
-	value |= MGBE_MTL_RSF;
-	/* Enable HW flow control */
-	value |= MGBE_MTL_RXQ_OP_MODE_EHFC;
-
-	osi_writela(osi_core, value, (nveu8_t *)osi_core->base +
-		   MGBE_MTL_CHX_RX_OP_MODE(qinx));
-
-	/* Update RFA and RFD
-	 * RFA: Threshold for Activating Flow Control
-	 * RFD: Threshold for Deactivating Flow Control
-	 */
-	value = osi_readla(osi_core, (nveu8_t *)osi_core->base +
-			  MGBE_MTL_RXQ_FLOW_CTRL(qinx));
-	value &= ~MGBE_MTL_RXQ_OP_MODE_RFD_MASK;
-	value &= ~MGBE_MTL_RXQ_OP_MODE_RFA_MASK;
-	value |= (rfd_rfa[qinx] << MGBE_MTL_RXQ_OP_MODE_RFD_SHIFT) & MGBE_MTL_RXQ_OP_MODE_RFD_MASK;
-	value |= (rfd_rfa[qinx] << MGBE_MTL_RXQ_OP_MODE_RFA_SHIFT) & MGBE_MTL_RXQ_OP_MODE_RFA_MASK;
-	osi_writela(osi_core, value, (nveu8_t *)osi_core->base +
-		   MGBE_MTL_RXQ_FLOW_CTRL(qinx));
-
-	/* Transmit Queue weight, all TX weights are equal */
-	value = osi_readla(osi_core, (nveu8_t *)osi_core->base +
-			  MGBE_MTL_TCQ_QW(qinx));
-	value |= MGBE_MTL_TCQ_QW_ISCQW;
-	osi_writela(osi_core, value, (nveu8_t *)osi_core->base +
-		   MGBE_MTL_TCQ_QW(qinx));
-
-	/* Default ETS tx selection algo */
-	value = osi_readla(osi_core, (nveu8_t *)osi_core->base +
-			   MGBE_MTL_TCQ_ETS_CR(osi_core->tc[qinx]));
-	value &= ~MGBE_MTL_TCQ_ETS_CR_AVALG;
-	value |= OSI_MGBE_TXQ_AVALG_ETS;
-	osi_writela(osi_core, value, (nveu8_t *)osi_core->base +
-		   MGBE_MTL_TCQ_ETS_CR(osi_core->tc[qinx]));
-
-	/* Enable Rx Queue Control */
-	value = osi_readla(osi_core, (nveu8_t *)osi_core->base +
-			  MGBE_MAC_RQC0R);
-	value |= ((osi_core->rxq_ctrl[qinx] & MGBE_MAC_RXQC0_RXQEN_MASK) <<
-		  (MGBE_MAC_RXQC0_RXQEN_SHIFT(qinx)));
-	osi_writela(osi_core, value, (nveu8_t *)osi_core->base +
-		   MGBE_MAC_RQC0R);
 fail:
 	return ret;
 }
@@ -1748,7 +1743,12 @@ static nve32_t mgbe_hsi_inject_err(struct osi_core_priv_data *const osi_core,
  */
 static nve32_t mgbe_configure_mac(struct osi_core_priv_data *osi_core)
 {
-	nveu32_t value = 0U, max_queue = 0U, i = 0U;
+	const struct core_local *l_core = (struct core_local *)(void *)osi_core;
+	/* 4176U is the minimum space required to support jumbo frames */
+	nveu32_t max_value = UINT_MAX - 4176U;
+	nveu32_t value = 0U;
+	nveu32_t result = 0U;
+	nve32_t ret = 0;
 
 	/* TODO: Need to check if we need to enable anything in Tx configuration
 	 * value = osi_readla(osi_core,
@@ -1760,6 +1760,17 @@ static nve32_t mgbe_configure_mac(struct osi_core_priv_data *osi_core)
 	/* Enable CRC stripping for Type packets */
 	/* Enable Rx checksum offload engine by default */
 	value |= MGBE_MAC_RMCR_ACS | MGBE_MAC_RMCR_CST | MGBE_MAC_RMCR_IPC;
+
+	if (l_core->tx_fifosz_perq  <= ((max_value / 256U) - 1U))
+		result = ((l_core->tx_fifosz_perq  + 1U) * 256U) - 4176U;
+
+	if (osi_core->mtu > result) {
+		OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_INVALID,
+			     "Invalid MTU, max allowed MTU should be less than:\n",
+			     (nveul64_t)result);
+		ret = -1;
+		goto err;
+	}
 
 	/* Jumbo Packet Enable */
 	if ((osi_core->mtu > OSI_DFLT_MTU_SIZE) &&
@@ -1794,16 +1805,8 @@ static nve32_t mgbe_configure_mac(struct osi_core_priv_data *osi_core)
 	value = osi_readla(osi_core,
 			   (nveu8_t *)osi_core->base + MGBE_MAC_RQC1R);
 	value |= MGBE_MAC_RQC1R_MCBCQEN;
-	/* Set MCBCQ to highest enabled RX queue index */
-	for (i = 0; i < osi_core->num_mtl_queues; i++) {
-		if ((max_queue < osi_core->mtl_queues[i]) &&
-		    (osi_core->mtl_queues[i] < OSI_MGBE_MAX_NUM_QUEUES)) {
-			/* Update max queue number */
-			max_queue = osi_core->mtl_queues[i];
-		}
-	}
 	value &= ~(MGBE_MAC_RQC1R_MCBCQ);
-	value |= (max_queue << MGBE_MAC_RQC1R_MCBCQ_SHIFT);
+	value |= MGBE_MAX_RXQ_NUM;
 	osi_writela(osi_core, value,
 		    (nveu8_t *)osi_core->base + MGBE_MAC_RQC1R);
 
@@ -1882,7 +1885,8 @@ static nve32_t mgbe_configure_mac(struct osi_core_priv_data *osi_core)
 	mgbe_config_rss(osi_core);
 #endif /* !OSI_STRIPPED_LIB */
 
-	return 0;
+err:
+	return ret;
 }
 
 /**
@@ -2015,7 +2019,6 @@ static nve32_t mgbe_dma_chan_to_vmirq_map(struct osi_core_priv_data *osi_core)
 static nve32_t mgbe_core_init(struct osi_core_priv_data *const osi_core)
 {
 	nve32_t ret = 0;
-	nveu32_t qinx = 0;
 	nveu32_t value = 0;
 
 	/* reset mmc counters */
@@ -2051,22 +2054,9 @@ static nve32_t mgbe_core_init(struct osi_core_priv_data *const osi_core)
 	osi_writela(osi_core, value, (nveu8_t *)osi_core->base +
 		   MGBE_MAC_EXT_CNF);
 
-	/* Configure MTL Queues */
-	/* TODO: Iterate over Number MTL queues need to be removed */
-	for (qinx = 0; qinx < osi_core->num_mtl_queues; qinx++) {
-		ret = mgbe_configure_mtl_queue(osi_core, osi_core->mtl_queues[qinx]);
-		if (ret < 0) {
-			goto fail;
-		}
-		/* Enable by default to configure forward error packets.
-		 * Since this is a local function this will always return sucess,
-		 * so no need to check for return value
-		 */
-		ret = hw_config_fw_err_pkts(osi_core, osi_core->mtl_queues[qinx], OSI_ENABLE);
-		if (ret < 0) {
-			goto fail;
-		}
-	}
+	ret = mgbe_configure_mtl_queue(osi_core);
+	if (ret < 0)
+		goto fail;
 
 	/* configure MGBE MAC HW */
 	ret = mgbe_configure_mac(osi_core);

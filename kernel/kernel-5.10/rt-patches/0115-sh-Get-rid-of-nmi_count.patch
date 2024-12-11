@@ -1,7 +1,7 @@
-From bf90f4faa1cfc9208201521b0700dc58310e388a Mon Sep 17 00:00:00 2001
+From cf3ddf3812898affdf9e1f547ec3a045e95ab803 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:09 +0100
-Subject: [PATCH 115/322] sh: Get rid of nmi_count()
+Subject: [PATCH 115/323] sh: Get rid of nmi_count()
 X-NVConfidentiality: public
 
 nmi_count() is a historical leftover and SH is the only user. Replace it
@@ -17,7 +17,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/arch/sh/kernel/irq.c b/arch/sh/kernel/irq.c
-index 5717c7cbdd97..5addcb2c2da0 100644
+index 5717c7cbdd97a..5addcb2c2da0c 100644
 --- a/arch/sh/kernel/irq.c
 +++ b/arch/sh/kernel/irq.c
 @@ -44,7 +44,7 @@ int arch_show_interrupts(struct seq_file *p, int prec)
@@ -30,7 +30,7 @@ index 5717c7cbdd97..5addcb2c2da0 100644
  
  	seq_printf(p, "%*s: %10u\n", prec, "ERR", atomic_read(&irq_err_count));
 diff --git a/arch/sh/kernel/traps.c b/arch/sh/kernel/traps.c
-index 4efffc18c851..be15e41489b2 100644
+index 4efffc18c8512..be15e41489b2d 100644
 --- a/arch/sh/kernel/traps.c
 +++ b/arch/sh/kernel/traps.c
 @@ -186,7 +186,7 @@ BUILD_TRAP_HANDLER(nmi)

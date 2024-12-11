@@ -1,7 +1,7 @@
-From 0c5fc52f74711520aff0b0a33eb96284346ed02d Mon Sep 17 00:00:00 2001
+From 879e88e3f6ea70247c53c06c7891ffe19b65f8d8 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Tue, 8 Jun 2021 00:37:33 -0400
-Subject: [PATCH 292/322] sched: Optimize migration_cpu_stop()
+Subject: [PATCH 292/323] sched: Optimize migration_cpu_stop()
 X-NVConfidentiality: public
 
 commit 3f1bc119cd7fc987c8ed25ffb717f99403bb308c upstream.
@@ -23,7 +23,7 @@ Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
  1 file changed, 12 insertions(+), 1 deletion(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 09357ee9d0a6..438a78c645b5 100644
+index 3c055279a88ad..19d9814b32951 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1988,14 +1988,25 @@ static int migration_cpu_stop(void *data)

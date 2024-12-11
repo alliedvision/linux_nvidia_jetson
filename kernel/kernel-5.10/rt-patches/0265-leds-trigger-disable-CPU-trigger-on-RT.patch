@@ -1,7 +1,7 @@
-From 67e6fb5b34cbfb0b0a572b0a4dbbf294efcad2c2 Mon Sep 17 00:00:00 2001
+From cf01ade99dc437b9c4a141cbe12f1226d7ef9d47 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 23 Jan 2014 14:45:59 +0100
-Subject: [PATCH 265/322] leds: trigger: disable CPU trigger on -RT
+Subject: [PATCH 265/323] leds: trigger: disable CPU trigger on -RT
 X-NVConfidentiality: public
 
 as it triggers:
@@ -24,7 +24,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+)
 
 diff --git a/drivers/leds/trigger/Kconfig b/drivers/leds/trigger/Kconfig
-index ce9429ca6dde..29ccbd6acf43 100644
+index ce9429ca6ddea..29ccbd6acf43f 100644
 --- a/drivers/leds/trigger/Kconfig
 +++ b/drivers/leds/trigger/Kconfig
 @@ -64,6 +64,7 @@ config LEDS_TRIGGER_BACKLIGHT

@@ -2,7 +2,7 @@
 /*
  * Voltage Regulator Specification: VRS11 High Current Voltage Regulator
  *
- * Copyright (C) 2022-2023 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2022-2024 NVIDIA CORPORATION. All rights reserved.
  */
 
 #include <linux/i2c.h>
@@ -118,8 +118,8 @@ static ssize_t show_loopA_rail_power(struct device *dev,
 	if (current_A < 0)
 		return current_A;
 
-	power = (voltage_A * current_A)/1000;
-	return sprintf(buf, "%u W\n", power);
+	power = (voltage_A * current_A);
+	return sprintf(buf, "%u mW\n", power);
 }
 
 static ssize_t show_loopB_rail_name(struct device *dev,
@@ -178,9 +178,9 @@ static ssize_t show_loopB_rail_power(struct device *dev,
 	if (current_B < 0)
 		return current_B;
 
-	power = (voltage_B * current_B)/1000;
+	power = (voltage_B * current_B);
 
-	return sprintf(buf, "%u W\n", power);
+	return sprintf(buf, "%u mW\n", power);
 }
 
 static DEVICE_ATTR(loopA_rail_name, S_IRUGO, show_loopA_rail_name, NULL);

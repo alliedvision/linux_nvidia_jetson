@@ -1,7 +1,7 @@
-From 50f117cd36ef48d0f18861ab102403e83a4d7412 Mon Sep 17 00:00:00 2001
+From 70cb3e11897fe6cdc7a6b55e96f8ab0c31e9cf48 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:08 +0200
-Subject: [PATCH 011/322] sched: Fix migrate_disable() vs
+Subject: [PATCH 011/323] sched: Fix migrate_disable() vs
  set_cpus_allowed_ptr()
 X-NVConfidentiality: public
 
@@ -44,7 +44,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 205 insertions(+), 30 deletions(-)
 
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 9cc6f39b1cbb..83447024a7ea 100644
+index 76907e9876d55..5b5c194f5a62d 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -726,6 +726,7 @@ struct task_struct {
@@ -56,7 +56,7 @@ index 9cc6f39b1cbb..83447024a7ea 100644
  	int				migration_disabled;
  #endif
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 283fd26bde69..6e786b89265b 100644
+index 228afe7c8259c..f51ed9a037b9c 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1746,15 +1746,26 @@ void migrate_enable(void)

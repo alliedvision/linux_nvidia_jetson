@@ -1,7 +1,7 @@
-From fe68bd027051f9ba90732282730238c0a10fe24a Mon Sep 17 00:00:00 2001
+From 2911a673091bc05deaa688f07e978c54bb57983b Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Wed, 9 Dec 2020 01:50:53 +0106
-Subject: [PATCH 081/322] printk: remove logbuf_lock writer-protection of
+Subject: [PATCH 081/323] printk: remove logbuf_lock writer-protection of
  ringbuffer
 X-NVConfidentiality: public
 
@@ -34,7 +34,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 98 insertions(+), 40 deletions(-)
 
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index 9a7c2b561e6d..b0a3f7827819 100644
+index 5af0b0e0259c4..14b4c3ea1a6b6 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
 @@ -1129,7 +1129,7 @@ void __init setup_log_buf(int early)
@@ -55,7 +55,7 @@ index 9a7c2b561e6d..b0a3f7827819 100644
  
  	if (seq != prb_next_seq(&printk_rb_static)) {
  		pr_err("dropped %llu messages\n",
-@@ -1887,18 +1887,90 @@ static inline u32 printk_caller_id(void)
+@@ -1893,18 +1893,90 @@ static inline u32 printk_caller_id(void)
  		0x80000000 + raw_smp_processor_id();
  }
  
@@ -149,7 +149,7 @@ index 9a7c2b561e6d..b0a3f7827819 100644
  	u16 text_len;
  	u64 ts_nsec;
  
-@@ -1911,35 +1983,21 @@ int vprintk_store(int facility, int level,
+@@ -1917,35 +1989,21 @@ int vprintk_store(int facility, int level,
  	ts_nsec = local_clock();
  
  	/*
@@ -197,7 +197,7 @@ index 9a7c2b561e6d..b0a3f7827819 100644
  
  	if (level == LOGLEVEL_DEFAULT)
  		level = default_message_loglevel;
-@@ -1948,9 +2006,10 @@ int vprintk_store(int facility, int level,
+@@ -1954,9 +2012,10 @@ int vprintk_store(int facility, int level,
  		lflags |= LOG_NEWLINE;
  
  	if (lflags & LOG_CONT) {
@@ -210,7 +210,7 @@ index 9a7c2b561e6d..b0a3f7827819 100644
  			r.info->text_len += text_len;
  
  			if (lflags & LOG_NEWLINE) {
-@@ -1969,18 +2028,18 @@ int vprintk_store(int facility, int level,
+@@ -1975,18 +2034,18 @@ int vprintk_store(int facility, int level,
  	 * prb_reserve_in_last() and prb_reserve() purposely invalidate the
  	 * structure when they fail.
  	 */
@@ -233,7 +233,7 @@ index 9a7c2b561e6d..b0a3f7827819 100644
  	if (trunc_msg_len)
  		memcpy(&r.text_buf[text_len], trunc_msg, trunc_msg_len);
  	r.info->text_len = text_len + trunc_msg_len;
-@@ -2021,10 +2080,9 @@ asmlinkage int vprintk_emit(int facility, int level,
+@@ -2027,10 +2086,9 @@ asmlinkage int vprintk_emit(int facility, int level,
  	boot_delay_msec(level);
  	printk_delay();
  

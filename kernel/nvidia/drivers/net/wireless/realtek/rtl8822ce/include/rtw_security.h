@@ -129,9 +129,7 @@ typedef struct _RT_PMKID_LIST {
 	u8						bUsed;
 	u8						Bssid[6];
 	u8						PMKID[16];
-	u8						SsidBuf[33];
-	u8						*ssid_octet;
-	u16						ssid_length;
+	systime						last_use;
 } RT_PMKID_LIST, *PRT_PMKID_LIST;
 
 
@@ -170,8 +168,8 @@ struct security_priv {
 	unsigned int wpa_pairwise_cipher;
 	unsigned int wpa2_pairwise_cipher;
 	unsigned int akmp; /* An authentication and key management protocol */
-	u8 mfp_opt;
 #endif
+	u8 mfp_opt;
 	u8	dot118021x_bmc_cam_id;
 	/*IEEE802.11-2012 Std. Table 8-101 AKM Suite Selectors*/
 	u32	rsn_akm_suite_type;
@@ -181,6 +179,9 @@ struct security_priv {
 
 	u8 owe_ie[MAX_OWE_IE_LEN];/* added in assoc req */
 	int owe_ie_len;
+
+	u8 rsnx_ie[MAX_RSNX_IE_LEN];
+	int rsnx_ie_len;
 
 	u8	binstallGrpkey;
 #ifdef CONFIG_GTK_OL

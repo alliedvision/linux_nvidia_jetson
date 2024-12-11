@@ -1,7 +1,7 @@
-From e64e1244afdea65a6f0ad7054bc5e82b884d14c8 Mon Sep 17 00:00:00 2001
+From 4b86c588b86d3db34a64e6c41e9483c67c2a3531 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 2 Dec 2015 11:34:07 +0100
-Subject: [PATCH 171/322] locking/rtmutex: Allow rt_mutex_trylock() on
+Subject: [PATCH 171/323] locking/rtmutex: Allow rt_mutex_trylock() on
  PREEMPT_RT
 X-NVConfidentiality: public
 
@@ -17,7 +17,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 4 insertions(+)
 
 diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
-index 35cdbbb5daa9..1bf7a04688c5 100644
+index 35cdbbb5daa93..1bf7a04688c54 100644
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
 @@ -1884,7 +1884,11 @@ int __sched __rt_mutex_futex_trylock(struct rt_mutex *lock)

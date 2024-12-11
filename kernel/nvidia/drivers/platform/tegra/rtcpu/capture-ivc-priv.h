@@ -1,8 +1,10 @@
-/**
+/* SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ *
+ * SPDX-FileCopyrightText: Copyright (c) 2017-2024 NVIDIA CORPORATION.
+ *                         All rights reserved.
+ *
  * @file drivers/platform/tegra/rtcpu/capture-ivc-priv.h
  * @brief Capture IVC driver private header for T186/T194
- *
- * Copyright (c) 2017-2019 NVIDIA Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -37,6 +39,7 @@ struct tegra_capture_ivc_cb_ctx {
 	tegra_capture_ivc_cb_func cb_func;
 	/** Private context of a VI/ISP capture context */
 	const void *priv_context;
+	struct semaphore sem_ch;
 };
 
 /**

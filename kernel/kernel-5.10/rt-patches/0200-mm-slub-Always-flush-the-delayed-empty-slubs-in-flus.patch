@@ -1,7 +1,7 @@
-From 61053f1026fd1df2933246550a10ea6949a120c8 Mon Sep 17 00:00:00 2001
+From 3157439b6e1693949c9d889e6a755498f8024e99 Mon Sep 17 00:00:00 2001
 From: Kevin Hao <haokexin@gmail.com>
 Date: Mon, 4 May 2020 11:34:07 +0800
-Subject: [PATCH 200/322] mm: slub: Always flush the delayed empty slubs in
+Subject: [PATCH 200/323] mm: slub: Always flush the delayed empty slubs in
  flush_all()
 X-NVConfidentiality: public
 
@@ -43,7 +43,7 @@ Cc: stable-rt@vger.kernel.org
  1 file changed, 3 deletions(-)
 
 diff --git a/mm/slub.c b/mm/slub.c
-index faba29039375..cb414c1f9ef6 100644
+index faba290393757..cb414c1f9ef6b 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -2501,9 +2501,6 @@ static void flush_all(struct kmem_cache *s)

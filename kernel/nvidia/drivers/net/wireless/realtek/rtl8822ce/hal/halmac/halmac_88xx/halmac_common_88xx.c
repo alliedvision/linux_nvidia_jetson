@@ -2712,7 +2712,7 @@ wlhdr_data_valid_88xx(struct halmac_adapter *adapter,
 
 /**
  * get_version_88xx() - get HALMAC version
- * @ver : return version of major, prototype and minor information
+ * @ver : return version of major, prototype, minor and patch information
  * Author : KaiYuan Chang / Ivan Lin
  * Return : enum halmac_ret_status
  * More details of status code can be found in prototype document
@@ -2725,6 +2725,7 @@ get_version_88xx(struct halmac_adapter *adapter, struct halmac_ver *ver)
 	ver->major_ver = (u8)HALMAC_MAJOR_VER;
 	ver->prototype_ver = (u8)HALMAC_PROTOTYPE_VER;
 	ver->minor_ver = (u8)HALMAC_MINOR_VER;
+	ver->patch_ver = (u8)HALMAC_PATCH_VER;
 
 	PLTFM_MSG_TRACE("[TRACE]%s <===\n", __func__);
 
@@ -2955,6 +2956,15 @@ cfg_drv_rsvd_pg_num_88xx(struct halmac_adapter *adapter,
 		break;
 	case HALMAC_RSVD_PG_NUM256:
 		adapter->txff_alloc.rsvd_drv_pg_num = 256;
+		break;
+	case HALMAC_RSVD_PG_NUM512:
+		adapter->txff_alloc.rsvd_drv_pg_num = 512;
+		break;
+	case HALMAC_RSVD_PG_NUM1024:
+		adapter->txff_alloc.rsvd_drv_pg_num = 1024;
+		break;
+	case HALMAC_RSVD_PG_NUM1460:
+		adapter->txff_alloc.rsvd_drv_pg_num = 1460;
 		break;
 	}
 
@@ -3221,6 +3231,15 @@ parse_intf_phy_88xx(struct halmac_adapter *adapter,
 			} else if (intf_phy == HAL_INTF_PHY_USB2 ||
 				   intf_phy == HAL_INTF_PHY_USB3) {
 #if HALMAC_USB_SUPPORT
+				if (offset > 0x100)
+					usb_page_switch_88xx(adapter,
+							     intf_phy,
+							     1);
+				else
+					usb_page_switch_88xx(adapter,
+							     intf_phy,
+							     0);
+				offset = offset & 0xFF;
 				result = usbphy_write_88xx(adapter, (u8)offset,
 							   value, intf_phy);
 				if (result != HALMAC_RET_SUCCESS)

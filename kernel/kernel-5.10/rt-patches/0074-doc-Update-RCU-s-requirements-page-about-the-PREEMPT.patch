@@ -1,7 +1,7 @@
-From 3808ba0529b71a9bad27e8e5461fdd1fdfdc787f Mon Sep 17 00:00:00 2001
+From f4ef8f8e092f3abe950f08656ffc0e5087656b5f Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 15 Dec 2020 15:16:48 +0100
-Subject: [PATCH 074/322] doc: Update RCU's requirements page about the
+Subject: [PATCH 074/323] doc: Update RCU's requirements page about the
  PREEMPT_RT wiki.
 X-NVConfidentiality: public
 
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/Documentation/RCU/Design/Requirements/Requirements.rst b/Documentation/RCU/Design/Requirements/Requirements.rst
-index 1ae79a10a8de..0f7e0237ea14 100644
+index 1ae79a10a8de6..0f7e0237ea14f 100644
 --- a/Documentation/RCU/Design/Requirements/Requirements.rst
 +++ b/Documentation/RCU/Design/Requirements/Requirements.rst
 @@ -2289,7 +2289,7 @@ decides to throw at it.

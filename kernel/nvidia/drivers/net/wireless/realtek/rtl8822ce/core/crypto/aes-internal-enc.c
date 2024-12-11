@@ -114,7 +114,7 @@ void * aes_encrypt_init(const u8 *key, size_t len)
 }
 
 
-int aes_encrypt(void *ctx, const u8 *plain, u8 *crypt)
+int _aes_encrypt(void *ctx, const u8 *plain, u8 *crypt)
 {
 	u32 *rk = ctx;
 	rijndaelEncrypt(ctx, rk[AES_PRIV_NR_POS], plain, crypt);

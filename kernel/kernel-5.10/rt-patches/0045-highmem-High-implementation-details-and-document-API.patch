@@ -1,7 +1,7 @@
-From 23dd46273d850de9539a87ff5afd9fcdbfae3dc7 Mon Sep 17 00:00:00 2001
+From 6d9d3abc4f1da9d09aa781f6fffa26be81c3823b Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:34 +0100
-Subject: [PATCH 045/322] highmem: High implementation details and document API
+Subject: [PATCH 045/323] highmem: High implementation details and document API
 X-NVConfidentiality: public
 
 Move the gory details of kmap & al into a private header and only document
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 diff --git a/include/linux/highmem-internal.h b/include/linux/highmem-internal.h
 new file mode 100644
-index 000000000000..6ceed907b14e
+index 0000000000000..6ceed907b14e2
 --- /dev/null
 +++ b/include/linux/highmem-internal.h
 @@ -0,0 +1,174 @@
@@ -197,7 +197,7 @@ index 000000000000..6ceed907b14e
 +
 +#endif
 diff --git a/include/linux/highmem.h b/include/linux/highmem.h
-index e632774cce87..5c888525b4c5 100644
+index e632774cce872..5c888525b4c58 100644
 --- a/include/linux/highmem.h
 +++ b/include/linux/highmem.h
 @@ -11,199 +11,125 @@
@@ -497,7 +497,7 @@ index e632774cce87..5c888525b4c5 100644
  /* when CONFIG_HIGHMEM is not set these will be plain clear/copy_page */
  #ifndef clear_user_highpage
 diff --git a/mm/highmem.c b/mm/highmem.c
-index 499dfafd36b7..54bd233846c9 100644
+index 499dfafd36b79..54bd233846c90 100644
 --- a/mm/highmem.c
 +++ b/mm/highmem.c
 @@ -104,7 +104,7 @@ static inline wait_queue_head_t *get_pkmap_wait_queue_head(unsigned int color)

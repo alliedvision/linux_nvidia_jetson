@@ -1,7 +1,7 @@
-From 00dcddb9cccf9e245e996e1af053146983a8a7d9 Mon Sep 17 00:00:00 2001
+From e4a3cd3b8591d86c75147e8a0ec6e93cde068211 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Thu, 28 Jul 2011 13:32:57 +0200
-Subject: [PATCH 266/322] tty/serial/omap: Make the locking RT aware
+Subject: [PATCH 266/323] tty/serial/omap: Make the locking RT aware
 X-NVConfidentiality: public
 
 The lock is a sleeping lock and local_irq_save() is not the
@@ -14,7 +14,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  1 file changed, 4 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/tty/serial/omap-serial.c b/drivers/tty/serial/omap-serial.c
-index 84e8158088cd..342005ed5ebf 100644
+index 84e8158088cd2..342005ed5ebf8 100644
 --- a/drivers/tty/serial/omap-serial.c
 +++ b/drivers/tty/serial/omap-serial.c
 @@ -1311,13 +1311,10 @@ serial_omap_console_write(struct console *co, const char *s,

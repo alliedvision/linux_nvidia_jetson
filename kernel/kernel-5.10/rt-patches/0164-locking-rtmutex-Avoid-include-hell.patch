@@ -1,7 +1,7 @@
-From d23921f9d0670ea96c22e1ba33c13be2afb0f13d Mon Sep 17 00:00:00 2001
+From 24580c601080efcadadb4ae337c145e5c07bcbc6 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 29 Jun 2011 20:06:39 +0200
-Subject: [PATCH 164/322] locking/rtmutex: Avoid include hell
+Subject: [PATCH 164/323] locking/rtmutex: Avoid include hell
 X-NVConfidentiality: public
 
 Include only the required raw types. This avoids pulling in the
@@ -13,7 +13,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/include/linux/rtmutex.h b/include/linux/rtmutex.h
-index 243fabc2c85f..add1dab27df5 100644
+index 243fabc2c85f6..add1dab27df52 100644
 --- a/include/linux/rtmutex.h
 +++ b/include/linux/rtmutex.h
 @@ -15,7 +15,7 @@

@@ -1,7 +1,7 @@
-From 64fb2d84e4a3bddc74c4863a0699253c44299e62 Mon Sep 17 00:00:00 2001
+From 6b31c4d1ff9b125ecb67518cac0289f9484ca379 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 26 Mar 2019 18:31:54 +0100
-Subject: [PATCH 276/322] powerpc/pseries/iommu: Use a locallock instead
+Subject: [PATCH 276/323] powerpc/pseries/iommu: Use a locallock instead
  local_irq_save()
 X-NVConfidentiality: public
 
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 20 insertions(+), 11 deletions(-)
 
 diff --git a/arch/powerpc/platforms/pseries/iommu.c b/arch/powerpc/platforms/pseries/iommu.c
-index 245f1f8df656..f05555dde8e7 100644
+index 245f1f8df6563..f05555dde8e7f 100644
 --- a/arch/powerpc/platforms/pseries/iommu.c
 +++ b/arch/powerpc/platforms/pseries/iommu.c
 @@ -24,6 +24,7 @@

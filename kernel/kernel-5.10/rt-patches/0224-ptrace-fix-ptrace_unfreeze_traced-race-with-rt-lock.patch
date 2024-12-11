@@ -1,7 +1,7 @@
-From 34dd5b81c472cdbc936b87a9e9855a32dba4fb0b Mon Sep 17 00:00:00 2001
+From 7d9c1138e33540cfef51dbae3821a08ff9542146 Mon Sep 17 00:00:00 2001
 From: Oleg Nesterov <oleg@redhat.com>
 Date: Tue, 3 Nov 2020 12:39:01 +0100
-Subject: [PATCH 224/322] ptrace: fix ptrace_unfreeze_traced() race with
+Subject: [PATCH 224/323] ptrace: fix ptrace_unfreeze_traced() race with
  rt-lock
 X-NVConfidentiality: public
 
@@ -20,7 +20,7 @@ Cc: stable-rt@vger.kernel.org
  1 file changed, 15 insertions(+), 8 deletions(-)
 
 diff --git a/kernel/ptrace.c b/kernel/ptrace.c
-index 71acb6341e63..fb5d1a19507d 100644
+index 71acb6341e639..fb5d1a19507da 100644
 --- a/kernel/ptrace.c
 +++ b/kernel/ptrace.c
 @@ -213,8 +213,8 @@ static bool ptrace_freeze_traced(struct task_struct *task)

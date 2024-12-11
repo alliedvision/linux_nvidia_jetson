@@ -1,7 +1,7 @@
-From fd0239edbbb192ebe13495833435925574c2fe59 Mon Sep 17 00:00:00 2001
+From 9d0b38b256e93c2b9ebfc317253c441beade6fa2 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:12 +0200
-Subject: [PATCH 015/322] sched, lockdep: Annotate ->pi_lock recursion
+Subject: [PATCH 015/323] sched, lockdep: Annotate ->pi_lock recursion
 X-NVConfidentiality: public
 
 There's a valid ->pi_lock recursion issue where the actual PI code
@@ -15,7 +15,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 15 insertions(+)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index b007e9720753..7124abdb3184 100644
+index 35da84c82c60d..1f90e339f1abe 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -2670,6 +2670,7 @@ int select_task_rq(struct task_struct *p, int cpu, int sd_flags, int wake_flags)

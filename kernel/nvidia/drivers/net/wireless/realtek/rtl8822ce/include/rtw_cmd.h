@@ -183,9 +183,10 @@ extern void rtw_cmd_clr_isr(struct cmd_priv *pcmdpriv);
 extern void rtw_evt_notify_isr(struct evt_priv *pevtpriv);
 #ifdef CONFIG_P2P
 u8 p2p_protocol_wk_cmd(_adapter *padapter, int intCmdType);
+#endif /* CONFIG_P2P */
 
 #ifdef CONFIG_IOCTL_CFG80211
-struct p2p_roch_parm {
+struct rtw_roch_parm {
 	u64 cookie;
 	struct wireless_dev *wdev;
 	struct ieee80211_channel ch;
@@ -193,18 +194,15 @@ struct p2p_roch_parm {
 	unsigned int duration;
 };
 
-u8 p2p_roch_cmd(_adapter *adapter
+u8 rtw_roch_cmd(_adapter *adapter
 	, u64 cookie, struct wireless_dev *wdev
 	, struct ieee80211_channel *ch, enum nl80211_channel_type ch_type
 	, unsigned int duration
 	, u8 flags
 );
-u8 p2p_cancel_roch_cmd(_adapter *adapter, u64 cookie, struct wireless_dev *wdev, u8 flags);
 
-#endif /* CONFIG_IOCTL_CFG80211 */
-#endif /* CONFIG_P2P */
+u8 rtw_cancel_roch_cmd(_adapter *adapter, u64 cookie, struct wireless_dev *wdev, u8 flags);
 
-#ifdef CONFIG_IOCTL_CFG80211 
 u8 rtw_mgnt_tx_cmd(_adapter *adapter, u8 tx_ch, u8 no_cck, const u8 *buf, size_t len, int wait_ack, u8 flags);
 struct mgnt_tx_parm {
 	u8 tx_ch;
@@ -248,6 +246,7 @@ enum rtw_drvextra_cmd_id {
 #ifdef CONFIG_RTW_REPEATER_SON
 	RSON_SCAN_WK_CID,
 #endif
+	ROCH_WK_CID,
 	MGNT_TX_WK_CID,
 	REQ_PER_CMD_WK_CID,
 	SSMPS_WK_CID,
@@ -348,7 +347,14 @@ Notes: To ask RTL8711 performing site-survey
 Command-Event Mode
 
 */
+#ifdef CONFIG_LAYER2_ROAMING
+struct nb_bssid {
+	u8 ch;
+	u8 bssid[ETH_ALEN];
+};
+#endif
 
+#define RTW_MAX_NB_RPT_NUM 8
 #define RTW_SSID_SCAN_AMOUNT 9 /* for WEXT_CSCAN_AMOUNT 9 */
 #define RTW_CHANNEL_SCAN_AMOUNT (14+37)
 struct sitesurvey_parm {
@@ -365,6 +371,12 @@ struct sitesurvey_parm {
 	u8 bw;		/* 0: use default */
 
 	bool acs; /* aim to trigger channel selection when scan done */
+
+#ifdef CONFIG_LAYER2_ROAMING
+	u8 nb_num;
+	struct nb_bssid nb[RTW_MAX_NB_RPT_NUM];
+#endif
+	u8 reason;
 };
 
 /*
@@ -540,8 +552,28 @@ struct set_ch_parm {
 };
 
 struct SetChannelPlan_param {
-	const struct country_chplan *country_ent;
+	enum regd_src_t regd_src;
+	enum rtw_regd_inr inr;
+	struct country_chplan country_ent;
+	bool has_country;
 	u8 channel_plan;
+#if CONFIG_IEEE80211_BAND_6GHZ
+	u8 channel_plan_6g;
+#endif
+
+#ifdef CONFIG_80211D
+	/* used for regd_src == RTK_PRIV and inr == COUNTRY_IE */
+	struct country_ie_slave_record cisr;
+	bool has_cisr;
+#endif
+
+#ifdef PLATFORM_LINUX
+	bool rtnl_lock_needed;
+#endif
+};
+
+struct get_channel_plan_param {
+	struct get_chplan_resp **chplan;
 };
 
 struct LedBlink_param {
@@ -558,6 +590,15 @@ struct RunInThread_param {
 	void *context;
 };
 
+#ifdef CONFIG_WRITE_BCN_LEN_TO_FW
+struct write_bcnlen_param {
+	u16 bcn_len;
+};
+#endif
+
+struct reqtxrpt_param {
+	u8 macid;
+};
 
 #define GEN_CMD_CODE(cmd)	cmd ## _CMD_
 
@@ -589,17 +630,16 @@ Result:
 
 void rtw_init_sitesurvey_parm(_adapter *padapter, struct sitesurvey_parm *pparm);
 u8 rtw_sitesurvey_cmd(_adapter *padapter, struct sitesurvey_parm *pparm);
+#ifdef CONFIG_AP_MODE
 u8 rtw_create_ibss_cmd(_adapter *adapter, int flags);
 u8 rtw_startbss_cmd(_adapter *adapter, int flags);
+#endif
 
 #define REQ_CH_NONE		-1
 #define REQ_CH_INT_INFO	-2
 #define REQ_BW_NONE		-1
 #define REQ_BW_ORI		-2
 #define REQ_OFFSET_NONE	-1
-
-u8 rtw_change_bss_chbw_cmd(_adapter *adapter, int flags
-	, u8 ifbmp, u8 excl_ifbmp, s16 req_ch, s8 req_bw, s8 req_offset);
 
 struct sta_info;
 extern u8 rtw_setstakey_cmd(_adapter  *padapter, struct sta_info *sta, u8 key_type, bool enqueue);
@@ -608,6 +648,8 @@ extern u8 rtw_clearstakey_cmd(_adapter *padapter, struct sta_info *sta, u8 enque
 extern u8 rtw_joinbss_cmd(_adapter  *padapter, struct wlan_network *pnetwork);
 u8 rtw_disassoc_cmd(_adapter *padapter, u32 deauth_timeout_ms, int flags);
 #ifdef CONFIG_AP_MODE
+u8 rtw_change_bss_chbw_cmd(_adapter *adapter, int flags
+	, u8 ifbmp, u8 excl_ifbmp, s16 req_ch, s8 req_bw, s8 req_offset);
 u8 rtw_stop_ap_cmd(_adapter *adapter, u8 flags);
 #endif
 #ifdef CONFIG_RTW_TOKEN_BASED_XMIT
@@ -667,12 +709,22 @@ u8 rtw_enable_hw_update_tsf_cmd(_adapter *padapter);
 u8 rtw_periodic_tsf_update_end_cmd(_adapter *adapter);
 
 u8 rtw_set_chbw_cmd(_adapter *padapter, u8 ch, u8 bw, u8 ch_offset, u8 flags);
+u8 rtw_iqk_cmd(_adapter *padapter, u8 flags);
 
-u8 rtw_set_chplan_cmd(_adapter *adapter, int flags, u8 chplan, u8 swconfig);
-u8 rtw_set_country_cmd(_adapter *adapter, int flags, const char *country_code, u8 swconfig);
+u8 rtw_set_chplan_cmd(_adapter *adapter, int flags, u8 chplan, u8 chplan_6g, enum rtw_regd_inr inr);
+u8 rtw_set_country_cmd(_adapter *adapter, int flags, const char *country_code, enum rtw_regd_inr inr);
+#ifdef CONFIG_REGD_SRC_FROM_OS
+u8 rtw_sync_os_regd_cmd(_adapter *adapter, int flags, const char *country_code, u8 dfs_region, enum rtw_regd_inr inr);
+#endif
+u8 rtw_get_chplan_cmd(_adapter *adapter, int flags, struct get_chplan_resp **chplan);
+
+#ifdef CONFIG_80211D
+u8 rtw_apply_recv_country_ie_cmd(_adapter *adapter, int flags, BAND_TYPE band,u8 opch, const u8 *country_ie);
+#endif
 
 extern u8 rtw_led_blink_cmd(_adapter *padapter, void *pLed);
 extern u8 rtw_set_csa_cmd(_adapter *adapter);
+extern u8 rtw_set_ap_csa_cmd(_adapter *adapter);
 extern u8 rtw_tdls_cmd(_adapter *padapter, u8 *addr, u8 option);
 
 u8 rtw_mp_cmd(_adapter *adapter, u8 mp_cmd_id, u8 flags);
@@ -717,6 +769,13 @@ u8 rtw_req_per_cmd(_adapter * adapter);
 u8 rtw_tbtx_chk_cmd(_adapter *adapter);
 u8 rtw_tbtx_token_dispatch_cmd(_adapter *adapter);
 #endif
+
+#ifdef CONFIG_WRITE_BCN_LEN_TO_FW
+u8 rtw_write_bcnlen_to_fw_cmd(_adapter *padapter, u16 bcn_len);
+#endif
+
+u8 rtw_reqtxrpt_cmd(_adapter *adapter, u8 macid);
+
 #ifdef CONFIG_CTRL_TXSS_BY_TP
 struct txss_cmd_parm {
 	struct sta_info *sta;
@@ -766,6 +825,11 @@ enum rtw_cmd_id {
 	CMD_ADD_BARSP, /*19*/
 	CMD_RM_POST_EVENT, /*20*/
 	CMD_SET_MESH_PLINK_STATE, /* 21 */
+	CMD_DO_IQK, /* 22 */
+	CMD_GET_CHANPLAN, /*23*/
+	CMD_WRITE_BCN_LEN, /*24 */
+	CMD_AP_CHANSWITCH, /* 25 AP switch channel */
+	CMD_REQ_TXRPT, /* 26 */
 	CMD_ID_MAX
 };
 

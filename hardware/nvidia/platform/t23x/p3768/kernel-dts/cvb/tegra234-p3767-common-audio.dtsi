@@ -2,7 +2,7 @@
 /*
  * Common Audio DT bindings
  *
- * Copyright (c) 2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  */
 
@@ -18,6 +18,10 @@
 
 		adsp@2993000 {
 			status = "okay";
+		};
+
+		adsp_audio {
+			status = "disabled";
 		};
 	};
 

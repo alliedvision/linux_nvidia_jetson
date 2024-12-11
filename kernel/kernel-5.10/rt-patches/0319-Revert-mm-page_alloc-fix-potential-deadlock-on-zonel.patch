@@ -1,7 +1,7 @@
-From 3c97d0489c4d014bae72b4c2eb941df7e91375f6 Mon Sep 17 00:00:00 2001
+From edf86d25a5f68e43589f39cd8a739ff6d6ceb64c Mon Sep 17 00:00:00 2001
 From: "Luis Claudio R. Goncalves" <lgoncalv@redhat.com>
 Date: Thu, 8 Jun 2023 19:47:25 -0300
-Subject: [PATCH 319/322] Revert "mm/page_alloc: fix potential deadlock on
+Subject: [PATCH 319/323] Revert "mm/page_alloc: fix potential deadlock on
  zonelist_update_seqseqlock"
 X-NVConfidentiality: public
 
@@ -24,10 +24,10 @@ Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
  1 file changed, 16 deletions(-)
 
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 5f1c50a6bebc..3760a06932a6 100644
+index 16200cbddaf1c..8060c788f63fe 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
-@@ -6043,21 +6043,7 @@ static void __build_all_zonelists(void *data)
+@@ -6045,21 +6045,7 @@ static void __build_all_zonelists(void *data)
  	int nid;
  	int __maybe_unused cpu;
  	pg_data_t *self = data;
@@ -49,7 +49,7 @@ index 5f1c50a6bebc..3760a06932a6 100644
  	write_seqlock(&zonelist_update_seq);
  
  #ifdef CONFIG_NUMA
-@@ -6092,8 +6078,6 @@ static void __build_all_zonelists(void *data)
+@@ -6094,8 +6080,6 @@ static void __build_all_zonelists(void *data)
  	}
  
  	write_sequnlock(&zonelist_update_seq);

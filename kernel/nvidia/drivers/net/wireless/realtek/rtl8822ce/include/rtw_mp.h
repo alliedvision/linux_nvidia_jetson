@@ -300,12 +300,17 @@ enum {
 #ifdef CONFIG_WOWLAN
 	MP_WOW_ENABLE,
 	MP_WOW_SET_PATTERN,
+#ifdef CONFIG_WOW_KEEP_ALIVE_PATTERN
+	MP_WOW_SET_KEEP_ALIVE_PATTERN,
+#endif /*CONFIG_WOW_KEEP_ALIVE_PATTERN*/
+
 #endif
 #ifdef CONFIG_AP_WOWLAN
 	MP_AP_WOW_ENABLE,
 #endif
 	MP_SD_IREAD,
 	MP_SD_IWRITE,
+	GET_IC_TYPE,
 };
 
 struct mp_priv {
@@ -342,6 +347,7 @@ struct mp_priv {
 	u8 bandwidth;
 	u8 prime_channel_offset;
 	u8 txpoweridx;
+	s8 txpower_dbm_offset;
 	u8 rateidx;
 	u32 preamble;
 	/*	u8 modem; */
@@ -388,6 +394,9 @@ struct mp_priv {
 	BOOLEAN mplink_btx;
 
 	bool tssitrk_on;
+	bool efuse_update_on;
+	bool efuse_update_file;
+	char efuse_file_path[128];
 };
 
 typedef struct _IOCMD_STRUCT_ {
@@ -418,7 +427,8 @@ typedef struct _MP_FIRMWARE {
 } RT_MP_FIRMWARE, *PRT_MP_FIRMWARE;
 
 
-
+#define GET_MPPRIV(__padapter) (struct mp_priv*)(&(((struct _ADAPTER*)__padapter)->mppriv))
+#define GET_EFUSE_UPDATE_ON(_padapter)	(GET_MPPRIV(_padapter)->efuse_update_on)
 
 /* *********************************************************************** */
 
@@ -728,7 +738,7 @@ void hal_mpt_SetContinuousTx(PADAPTER pAdapter, u8 bStart);
 void hal_mpt_SetSingleCarrierTx(PADAPTER pAdapter, u8 bStart);
 void hal_mpt_SetSingleToneTx(PADAPTER pAdapter, u8 bStart);
 void hal_mpt_SetCarrierSuppressionTx(PADAPTER pAdapter, u8 bStart);
-void mpt_ProSetPMacTx(PADAPTER	Adapter);
+u8 mpt_ProSetPMacTx(PADAPTER	Adapter);
 void MP_PHY_SetRFPathSwitch(PADAPTER pAdapter , BOOLEAN bMain);
 void mp_phy_switch_rf_path_set(PADAPTER pAdapter , u8 *pstate);
 u8 MP_PHY_QueryRFPathSwitch(PADAPTER pAdapter);
@@ -740,6 +750,8 @@ u32 mp_join(PADAPTER padapter, u8 mode);
 u32 hal_mpt_query_phytxok(PADAPTER	pAdapter);
 u32 mpt_get_tx_power_finalabs_val(PADAPTER	padapter, u8 rf_path);
 void mpt_trigger_tssi_tracking(PADAPTER pAdapter, u8 rf_path);
+u32 hal_mpt_tssi_turn_target_power(PADAPTER padapter, s16 power_offset, u8 path);
+s16 hal_mpt_get_tx_power_mdbm(_adapter *padapter, u8 rf_path);
 
 
 void
@@ -902,9 +914,11 @@ int rtw_bt_efuse_mask_file(struct net_device *dev,
 int rtw_efuse_file_map(struct net_device *dev,
 		struct iw_request_info *info,
 		union iwreq_data *wrqu, char *extra);
+#if !defined(CONFIG_RTW_ANDROID_GKI)
 int rtw_efuse_file_map_store(struct net_device *dev,
 		struct iw_request_info *info,
 		union iwreq_data *wrqu, char *extra);
+#endif /* !defined(CONFIG_RTW_ANDROID_GKI) */
 int rtw_bt_efuse_file_map(struct net_device *dev,
 		struct iw_request_info *info,
 		union iwreq_data *wrqu, char *extra);

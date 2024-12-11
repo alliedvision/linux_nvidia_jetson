@@ -243,6 +243,7 @@ typedef enum _BTC_CHIP_TYPE {
 	BTC_CHIP_RTL8723D 		= 10,
 	BTC_CHIP_RTL8703B 		= 11,
 	BTC_CHIP_RTL8725A 		= 12,
+	BTC_CHIP_RTL8723F 		= 13,
 	BTC_CHIP_MAX
 } BTC_CHIP_TYPE, *PBTC_CHIP_TYPE;
 
@@ -329,6 +330,9 @@ enum btc_btinfo_src {
 	BTC_BTINFO_SRC_BT_IQK	= 0x3,
 	BTC_BTINFO_SRC_BT_SCBD	= 0x4,
 	BTC_BTINFO_SRC_H2C60	= 0x5,
+	BTC_BTINFO_SRC_BT_PSD	= 0x6,
+	BTC_BTINFO_SRC_BT_SLOT1	= 0x7,
+	BTC_BTINFO_SRC_BT_SLOT2	= 0x8,
 	BTC_BTINFO_SRC_MAX
 };
 
@@ -409,6 +413,7 @@ enum btc_ext_ant_switch_type {
 	BTC_SWITCH_NONE	= 0x0,
 	BTC_SWITCH_SPDT	= 0x1,
 	BTC_SWITCH_SP3T	= 0x2,
+	BTC_SWITCH_DPDT = 0x3,
 	BTC_SWITCH_ANTMAX
 };
 
@@ -458,12 +463,18 @@ enum btc_wl2bt_scoreboard {
 	BTC_SCBD_EXTFEM		= BIT(8),
 	BTC_SCBD_TDMA		= BIT(9),
 	BTC_SCBD_FIX2M		= BIT(10),
-	BTC_SCBD_ALL		= 0xffff
+	BTC_SCBD_MAILBOX_DBG	= BIT(14),
+	BTC_SCBD_ALL		= 0xffff,
+	BTC_SCBD_ALL_32BIT	= 0xffffffff
 };
 
 enum btc_bt2wl_scoreboard {
 	BTC_SCBD_BT_ONOFF	= BIT(1),
 	BTC_SCBD_BT_LPS		= BIT(7)
+};
+enum btc_scoreboard_bit_num {
+	BTC_SCBD_16_BIT		= BIT(0),
+	BTC_SCBD_32_BIT		= BIT(1)
 };
 
 enum btc_runreason {
@@ -488,6 +499,7 @@ enum btc_runreason {
 	BTC_RSN_TIMERUP		= 0x12,
 	BTC_RSN_WLSTATUS	= 0x13,
 	BTC_RSN_BTCNT		= 0x14,
+	BTC_RSN_RFK		= 0x15,
 	BTC_RSN_MAX
 };
 
@@ -513,6 +525,7 @@ static const char *const run_reason_string[] = {
 	"TimerUp",
 	"WL_STATUS_CHANGE",
 	"BT_CNT_CHANGE",
+	"WL_RFK",
 	"Reason Max"
 };
 
@@ -535,7 +548,9 @@ static const char *const coex_mode_string[] = {
 	"5G",
 	"2G-P2P-GO",
 	"2G-P2P-GC",
-	"BT-MR"
+	"BT-MR",
+	"2G1RFREE",
+	"unknow"
 };
 
 enum btc_bt_state_cnt {
@@ -600,6 +615,7 @@ enum btc_timer_cnt {
 	BTC_TIMER_BT_REENABLE	= 0x8,
 	BTC_TIMER_BT_MULTILINK	= 0x9,
 	BTC_TIMER_BT_INQPAGE	= 0xa,
+	BTC_TIMER_BT_A2DP_ACT	= 0xb,
 	BTC_TIMER_MAX
 };
 
@@ -625,6 +641,7 @@ enum btc_commom_chip_setup {
 	BTC_CSETUP_WL_TX_POWER	= 0x6,
 	BTC_CSETUP_WL_RX_GAIN	= 0x7,
 	BTC_CSETUP_WLAN_ACT_IPS = 0x8,
+	BTC_CSETUP_BT_CTRL_ACT	= 0x9,
 	BTC_CSETUP_MAX
 };
 
@@ -668,6 +685,21 @@ enum btc_ext_chip_mode{
         BTC_EXTMODE_NORMAL,
         BTC_EXTMODE_VOICE,
         BTC_EXTMODE_MAX
+};
+
+enum btc_wl_rfk_type {
+	BTC_PWR_TRK = 0,
+	BTC_IQK = 1,
+	BTC_LCK = 2,
+	BTC_DPK = 3,
+	BTC_TXGAPK = 4,
+	BTC_RFK_TYPE_MAX
+};
+
+enum btc_wl_rfk_state {
+	BTC_RFK_START = 0,
+	BTC_RFK_END = 1,
+	BTC_RFK_STATE_MAX
 };
 
 struct btc_board_info {
@@ -714,6 +746,8 @@ struct btc_coex_dm {
 	u8	bt_status;
 	u8	wl_chnl_info[3];
 	u8	cur_toggle_para[6];
+	u8	bt_slot_length1[10];
+	u8	bt_slot_length2[10];
 	u32	cur_ant_pos_type;
 	u32	cur_switch_status;
 	u32	setting_tdma;
@@ -754,6 +788,8 @@ struct btc_coex_sta {
 	boolean bt_ble_scan_en;
 	boolean bt_slave;
 	boolean bt_a2dp_active;
+	boolean bt_a2dp_active_pre;
+	boolean bt_a2dp_active_remain;
 	boolean bt_slave_latency;
 	boolean bt_init_scan;
 	boolean bt_418_hid_exist;
@@ -762,6 +798,7 @@ struct btc_coex_sta {
 	boolean bt_ctr_ok;
 
 	boolean wl_under_lps;
+	boolean wl_in_lps_enter;
 	boolean wl_under_ips;
 	boolean wl_under_4way;
 	boolean	wl_hi_pri_task1;
@@ -785,6 +822,7 @@ struct btc_coex_sta {
 	boolean wl_slot_toggle_change; /* if toggle to no-toggle */
 	boolean wl_leak_ap; /* !is_no_wl_5ms_extend  */
 	boolean wl_blacklist_ap;
+	boolean wl_rfk;
 
 	u8	coex_table_type;
 	u8 	coex_run_reason;
@@ -833,13 +871,18 @@ struct btc_coex_sta {
 	u8	wl_toggle_interval;
 
 	u16	score_board_BW;
-	u16	score_board_WB;
+	u32	score_board_WB;
 	u16	bt_reg_vendor_ac;
 	u16	bt_reg_vendor_ae;
+	u32	bt_reg_vendor_dac;
 	u16	bt_reg_modem_a;
 	u16	bt_reg_rf_2;
+	u16	bt_reg_rf_9;
+	u16	bt_reg_le_200;
 	u16	wl_txlimit;
 
+	u32	score_board_BW_32bit;
+	u32	score_board_WB_32bit;
 	u32	hi_pri_tx;
 	u32	hi_pri_rx;
 	u32	lo_pri_tx;
@@ -1165,6 +1208,8 @@ typedef enum _BTC_NOTIFY_TYPE_IPS {
 typedef enum _BTC_NOTIFY_TYPE_LPS {
 	BTC_LPS_DISABLE							= 0x0,
 	BTC_LPS_ENABLE							= 0x1,
+	BTC_LPS_PRE							= 0x2,
+	BTC_LPS_RET							= 0x3,
 	BTC_LPS_MAX
 } BTC_NOTIFY_TYPE_LPS, *PBTC_NOTIFY_TYPE_LPS;
 typedef enum _BTC_NOTIFY_TYPE_SCAN {
@@ -1454,10 +1499,21 @@ typedef u2Byte
 	IN 	PVOID			pBtcContext,
 	IN	pu2Byte			score_board_val
 	);
+typedef u4Byte
+(*BFP_BTC_R_SCBD_32BIT)(
+	IN 	PVOID			pBtcContext,
+	IN	pu4Byte			score_board_val
+	);
 typedef VOID
 (*BFP_BTC_W_SCBD)(
 	IN 	PVOID			pBtcContext,
 	IN	u2Byte			bitpos,
+	IN	BOOLEAN			state
+	);
+typedef VOID
+(*BFP_BTC_W_SCBD_32BIT)(
+	IN 	PVOID			pBtcContext,
+	IN	u4Byte			bitpos,
 	IN	BOOLEAN			state
 	);
 typedef VOID
@@ -1773,7 +1829,10 @@ struct btc_coexist {
 	BFP_BTC_R_LINDIRECT		btc_read_linderct;
 	BFP_BTC_W_LINDIRECT		btc_write_linderct;
 	BFP_BTC_R_SCBD			btc_read_scbd;
+	BFP_BTC_R_SCBD_32BIT	btc_read_scbd_32bit;
 	BFP_BTC_W_SCBD			btc_write_scbd;
+	BFP_BTC_W_SCBD_32BIT	btc_write_scbd_32bit;
+
 	/* read/write bb related */
 	BFP_BTC_SET_BB_REG	btc_set_bb_reg;
 	BFP_BTC_GET_BB_REG	btc_get_bb_reg;
@@ -1879,7 +1938,10 @@ struct btc_chip_para {
 	u32				para_ver_date;
 	u32				para_ver;
 	u32				bt_desired_ver;
+	u32				wl_desired_ver;
 	boolean			scbd_support;
+	u32				scbd_reg;
+	u8				scbd_bit_num;
 	boolean			mailbox_support;
 	boolean			lte_indirect_access;
 	boolean			new_scbd10_def; /* TRUE: 1:fix 2M(8822c) */
@@ -2022,6 +2084,13 @@ EXhalbtcoutsrc_WLStatusChangeNotify(
 	IN	PBTC_COEXIST		pBtCoexist,
 	IN	u4Byte change_type
 );
+VOID
+EXhalbtcoutsrc_WL_RFK_Notify(
+	IN	PBTC_COEXIST 		pBtCoexist,
+	IN	u1Byte			path,
+	IN	u1Byte			type,
+	IN	u1Byte			state
+	);
 VOID
 EXhalbtcoutsrc_CoexDmSwitch(
 	IN	PBTC_COEXIST		pBtCoexist

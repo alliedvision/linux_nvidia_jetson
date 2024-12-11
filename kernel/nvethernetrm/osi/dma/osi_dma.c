@@ -393,8 +393,33 @@ static inline void start_dma(const struct osi_dma_priv_data *const osi_dma, nveu
 	osi_writel(val, (nveu8_t *)osi_dma->base + rx_dma_reg[osi_dma->mac]);
 }
 
-static void init_dma_channel(const struct osi_dma_priv_data *const osi_dma,
-			     nveu32_t dma_chan)
+static inline nveu32_t calculate_tx_pbl(nveu32_t tx_fifo_perq, nveu32_t mtu)
+{
+	nveu32_t subtraction_result = 0U;
+	nveu32_t tx_pbl = 0U;
+
+	/*
+	 * Formula for TxPBL calculation is
+	 * (TxPBL) < ((TXQSize - MTU)/(DATAWIDTH/8)) - 5
+	 * if TxPBL exceeds the value of 256 then we need to make use of 256
+	 * as the TxPBL else we should be using the value which we get after
+	 * calculation by using above formula
+	 */
+	/* tx_pbl = ((((Total Q size / total enabled queues) - osi_dma->mtu) /
+	 *             (MGBE_AXI_DATAWIDTH / 8U)) - 5U)
+	 */
+	if (tx_fifo_perq >= mtu) {
+		subtraction_result = tx_fifo_perq - mtu;
+
+		if (subtraction_result >= (5U * 16U))
+			tx_pbl = (subtraction_result / 16U) - 5U;
+	}
+
+	return tx_pbl;
+}
+
+static nve32_t init_dma_channel(const struct osi_dma_priv_data *const osi_dma,
+				nveu32_t dma_chan)
 {
 	nveu32_t chan = dma_chan & 0xFU;
 	nveu32_t riwt = osi_dma->rx_riwt & 0xFFFU;
@@ -417,11 +442,6 @@ static void init_dma_channel(const struct osi_dma_priv_data *const osi_dma,
 	const nveu32_t rx_wdt_reg[2] = {
 		EQOS_DMA_CHX_RX_WDT(chan),
 		MGBE_DMA_CHX_RX_WDT(chan)
-	};
-	const nveu32_t tx_pbl[2] = {
-		EQOS_DMA_CHX_TX_CTRL_TXPBL_RECOMMENDED,
-		((((MGBE_TXQ_SIZE / osi_dma->num_dma_chans) -
-		   osi_dma->mtu) / (MGBE_AXI_DATAWIDTH / 8U)) - 5U)
 	};
 	const nveu32_t rx_pbl[2] = {
 		EQOS_DMA_CHX_RX_CTRL_RXPBL_RECOMMENDED,
@@ -446,7 +466,8 @@ static void init_dma_channel(const struct osi_dma_priv_data *const osi_dma,
 		MGBE_DMA_CHX_RX_CNTRL2_OWRQ_SCHAN, owrq, owrq, owrq,
 		owrq, owrq, owrq, owrq, owrq, owrq
 	};
-	nveu32_t val;
+	nveu32_t val, tx_fifo_perq, tx_pbl, result = 0U;
+	nve32_t ret = 0;
 
 	/* Enable Transmit/Receive interrupts */
 	val = osi_readl((nveu8_t *)osi_dma->base + intr_en_reg[osi_dma->mac]);
@@ -462,22 +483,41 @@ static void init_dma_channel(const struct osi_dma_priv_data *const osi_dma,
 	val = osi_readl((nveu8_t *)osi_dma->base + tx_ctrl_reg[osi_dma->mac]);
 	val |= (DMA_CHX_TX_CTRL_OSP | DMA_CHX_TX_CTRL_TSE);
 
+	/* Getting Per TX Q memory */
 	if (osi_dma->mac == OSI_MAC_HW_EQOS) {
-		val |= tx_pbl[osi_dma->mac];
+		val |= EQOS_DMA_CHX_TX_CTRL_TXPBL_RECOMMENDED;
 	} else {
-		/*
-		 * Formula for TxPBL calculation is
-		 * (TxPBL) < ((TXQSize - MTU)/(DATAWIDTH/8)) - 5
-		 * if TxPBL exceeds the value of 256 then we need to make use of 256
-		 * as the TxPBL else we should be using the value whcih we get after
-		 * calculation by using above formula
-		 */
-		if (tx_pbl[osi_dma->mac] >= MGBE_DMA_CHX_MAX_PBL) {
+		/* Need to get per Q memeory assigned inside OSI core */
+		tx_fifo_perq = osi_readl((nveu8_t *)osi_dma->base +
+					 MGBE_MTL_CHX_TX_OP_MODE(chan));
+		/* Mask the bits to get the per queue memory from the register */
+		tx_fifo_perq = (tx_fifo_perq >> 16U) & 0x1FFU;
+		/* Need to multiply by 256 to get the actual memory size */
+		tx_fifo_perq = (tx_fifo_perq + 1U) * 256U;
+
+		if (tx_fifo_perq >= 4176U)
+			result = tx_fifo_perq - 4176U;
+
+		if (osi_dma->mtu > result) {
+			OSI_DMA_ERR(osi_dma->osd, OSI_LOG_ARG_INVALID,
+				    "Invalid MTU, max allowed MTU should be less than:\n", result);
+			ret = -1;
+			goto err;
+		}
+
+		tx_pbl = calculate_tx_pbl(tx_fifo_perq, osi_dma->mtu);
+
+		if (tx_pbl >= MGBE_DMA_CHX_MAX_PBL) {
+			/* setting maximum value of 32 which is 32 * 8
+			 * (because TxPBLx8 = 1) => 256 bytes
+			 */
 			val |= MGBE_DMA_CHX_MAX_PBL_VAL;
 		} else {
-			val |= ((tx_pbl[osi_dma->mac] / 8U) << MGBE_DMA_CHX_CTRL_PBL_SHIFT);
+			/* divide by 8 because TxPBLx8 = 1 */
+			val |= ((tx_pbl / 8U) << MGBE_DMA_CHX_CTRL_PBL_SHIFT);
 		}
 	}
+
 	osi_writel(val, (nveu8_t *)osi_dma->base + tx_ctrl_reg[osi_dma->mac]);
 
 	val = osi_readl((nveu8_t *)osi_dma->base + rx_ctrl_reg[osi_dma->mac]);
@@ -525,6 +565,9 @@ static void init_dma_channel(const struct osi_dma_priv_data *const osi_dma,
 		val |= (owrq_arr[osi_dma->num_dma_chans - 1U] << MGBE_DMA_CHX_RX_CNTRL2_OWRQ_SHIFT);
 		osi_writel(val, (nveu8_t *)osi_dma->base + MGBE_DMA_CHX_RX_CNTRL2(chan));
 	}
+
+err:
+	return ret;
 }
 
 nve32_t osi_hw_dma_init(struct osi_dma_priv_data *osi_dma)
@@ -573,7 +616,10 @@ nve32_t osi_hw_dma_init(struct osi_dma_priv_data *osi_dma)
 	for (i = 0; i < osi_dma->num_dma_chans; i++) {
 		chan = osi_dma->dma_chans[i];
 
-		init_dma_channel(osi_dma, chan);
+		ret = init_dma_channel(osi_dma, chan);
+		if (ret < 0) {
+			goto fail;
+		}
 
 		ret = intr_fn[OSI_DMA_INTR_ENABLE](osi_dma,
 				VIRT_INTR_CHX_CNTRL(chan),

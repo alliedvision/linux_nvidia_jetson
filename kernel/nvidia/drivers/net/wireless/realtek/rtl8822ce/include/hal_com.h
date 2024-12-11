@@ -118,6 +118,7 @@
 #define DESC_RATEVHTSS4MCS7		0x51
 #define DESC_RATEVHTSS4MCS8		0x52
 #define DESC_RATEVHTSS4MCS9		0x53
+#define DESC_RATE_NUM			0x54
 
 #define IS_CCK_HRATE(_rate)		((_rate) <= DESC_RATE11M)
 #define IS_OFDM_HRATE(_rate)	((_rate) >= DESC_RATE6M && (_rate) <= DESC_RATE54M)
@@ -142,92 +143,8 @@
 
 #define HRARE_SS_NUM(_rate) (IS_1SS_HRATE(_rate) ? 1 : (IS_2SS_HRATE(_rate) ? 2 : (IS_3SS_HRATE(_rate) ? 3 : (IS_4SS_HRATE(_rate) ? 4 : 0))))
 
-#define HDATA_RATE(rate)\
-	(rate == DESC_RATE1M) ? "CCK_1M" :\
-	(rate == DESC_RATE2M) ? "CCK_2M" :\
-	(rate == DESC_RATE5_5M) ? "CCK5_5M" :\
-	(rate == DESC_RATE11M) ? "CCK_11M" :\
-	(rate == DESC_RATE6M) ? "OFDM_6M" :\
-	(rate == DESC_RATE9M) ? "OFDM_9M" :\
-	(rate == DESC_RATE12M) ? "OFDM_12M" :\
-	(rate == DESC_RATE18M) ? "OFDM_18M" :\
-	(rate == DESC_RATE24M) ? "OFDM_24M" :\
-	(rate == DESC_RATE36M) ? "OFDM_36M" :\
-	(rate == DESC_RATE48M) ? "OFDM_48M" :\
-	(rate == DESC_RATE54M) ? "OFDM_54M" :\
-	(rate == DESC_RATEMCS0) ? "MCS0" :\
-	(rate == DESC_RATEMCS1) ? "MCS1" :\
-	(rate == DESC_RATEMCS2) ? "MCS2" :\
-	(rate == DESC_RATEMCS3) ? "MCS3" :\
-	(rate == DESC_RATEMCS4) ? "MCS4" :\
-	(rate == DESC_RATEMCS5) ? "MCS5" :\
-	(rate == DESC_RATEMCS6) ? "MCS6" :\
-	(rate == DESC_RATEMCS7) ? "MCS7" :\
-	(rate == DESC_RATEMCS8) ? "MCS8" :\
-	(rate == DESC_RATEMCS9) ? "MCS9" :\
-	(rate == DESC_RATEMCS10) ? "MCS10" :\
-	(rate == DESC_RATEMCS11) ? "MCS11" :\
-	(rate == DESC_RATEMCS12) ? "MCS12" :\
-	(rate == DESC_RATEMCS13) ? "MCS13" :\
-	(rate == DESC_RATEMCS14) ? "MCS14" :\
-	(rate == DESC_RATEMCS15) ? "MCS15" :\
-	(rate == DESC_RATEMCS16) ? "MCS16" :\
-	(rate == DESC_RATEMCS17) ? "MCS17" :\
-	(rate == DESC_RATEMCS18) ? "MCS18" :\
-	(rate == DESC_RATEMCS19) ? "MCS19" :\
-	(rate == DESC_RATEMCS20) ? "MCS20" :\
-	(rate == DESC_RATEMCS21) ? "MCS21" :\
-	(rate == DESC_RATEMCS22) ? "MCS22" :\
-	(rate == DESC_RATEMCS23) ? "MCS23" :\
-	(rate == DESC_RATEMCS24) ? "MCS24" :\
-	(rate == DESC_RATEMCS25) ? "MCS25" :\
-	(rate == DESC_RATEMCS26) ? "MCS26" :\
-	(rate == DESC_RATEMCS27) ? "MCS27" :\
-	(rate == DESC_RATEMCS28) ? "MCS28" :\
-	(rate == DESC_RATEMCS29) ? "MCS29" :\
-	(rate == DESC_RATEMCS30) ? "MCS30" :\
-	(rate == DESC_RATEMCS31) ? "MCS31" :\
-	(rate == DESC_RATEVHTSS1MCS0) ? "VHTSS1MCS0" :\
-	(rate == DESC_RATEVHTSS1MCS1) ? "VHTSS1MCS1" :\
-	(rate == DESC_RATEVHTSS1MCS2) ? "VHTSS1MCS2" :\
-	(rate == DESC_RATEVHTSS1MCS3) ? "VHTSS1MCS3" :\
-	(rate == DESC_RATEVHTSS1MCS4) ? "VHTSS1MCS4" :\
-	(rate == DESC_RATEVHTSS1MCS5) ? "VHTSS1MCS5" :\
-	(rate == DESC_RATEVHTSS1MCS6) ? "VHTSS1MCS6" :\
-	(rate == DESC_RATEVHTSS1MCS7) ? "VHTSS1MCS7" :\
-	(rate == DESC_RATEVHTSS1MCS8) ? "VHTSS1MCS8" :\
-	(rate == DESC_RATEVHTSS1MCS9) ? "VHTSS1MCS9" :\
-	(rate == DESC_RATEVHTSS2MCS0) ? "VHTSS2MCS0" :\
-	(rate == DESC_RATEVHTSS2MCS1) ? "VHTSS2MCS1" :\
-	(rate == DESC_RATEVHTSS2MCS2) ? "VHTSS2MCS2" :\
-	(rate == DESC_RATEVHTSS2MCS3) ? "VHTSS2MCS3" :\
-	(rate == DESC_RATEVHTSS2MCS4) ? "VHTSS2MCS4" :\
-	(rate == DESC_RATEVHTSS2MCS5) ? "VHTSS2MCS5" :\
-	(rate == DESC_RATEVHTSS2MCS6) ? "VHTSS2MCS6" :\
-	(rate == DESC_RATEVHTSS2MCS7) ? "VHTSS2MCS7" :\
-	(rate == DESC_RATEVHTSS2MCS8) ? "VHTSS2MCS8" :\
-	(rate == DESC_RATEVHTSS2MCS9) ? "VHTSS2MCS9" :\
-	(rate == DESC_RATEVHTSS3MCS0) ? "VHTSS3MCS0" :\
-	(rate == DESC_RATEVHTSS3MCS1) ? "VHTSS3MCS1" :\
-	(rate == DESC_RATEVHTSS3MCS2) ? "VHTSS3MCS2" :\
-	(rate == DESC_RATEVHTSS3MCS3) ? "VHTSS3MCS3" :\
-	(rate == DESC_RATEVHTSS3MCS4) ? "VHTSS3MCS4" :\
-	(rate == DESC_RATEVHTSS3MCS5) ? "VHTSS3MCS5" :\
-	(rate == DESC_RATEVHTSS3MCS6) ? "VHTSS3MCS6" :\
-	(rate == DESC_RATEVHTSS3MCS7) ? "VHTSS3MCS7" :\
-	(rate == DESC_RATEVHTSS3MCS8) ? "VHTSS3MCS8" :\
-	(rate == DESC_RATEVHTSS3MCS9) ? "VHTSS3MCS9" :\
-	(rate == DESC_RATEVHTSS4MCS0) ? "VHTSS4MCS0" :\
-	(rate == DESC_RATEVHTSS4MCS1) ? "VHTSS4MCS1" :\
-	(rate == DESC_RATEVHTSS4MCS2) ? "VHTSS4MCS2" :\
-	(rate == DESC_RATEVHTSS4MCS3) ? "VHTSS4MCS3" :\
-	(rate == DESC_RATEVHTSS4MCS4) ? "VHTSS4MCS4" :\
-	(rate == DESC_RATEVHTSS4MCS5) ? "VHTSS4MCS5" :\
-	(rate == DESC_RATEVHTSS4MCS6) ? "VHTSS4MCS6" :\
-	(rate == DESC_RATEVHTSS4MCS7) ? "VHTSS4MCS7" :\
-	(rate == DESC_RATEVHTSS4MCS8) ? "VHTSS4MCS8" :\
-	(rate == DESC_RATEVHTSS4MCS9) ? "VHTSS4MCS9" :\
-	"UNKNOWN"
+extern const char * const _HDATA_RATE[];
+#define HDATA_RATE(rate) ((rate) >= DESC_RATE_NUM ? _HDATA_RATE[DESC_RATE_NUM] : _HDATA_RATE[rate])
 
 enum {
 	UP_LINK,
@@ -268,10 +185,25 @@ typedef enum _WAKEUP_REASON{
 	RTIME_FAIL_DMA_IDLE				= 0x42,
 	RTIME_FAIL_DMA_PAUSE			= 0x43,
 	RX_PNO							= 0x55,
+	#ifdef CONFIG_WOW_KEEP_ALIVE_PATTERN
+	WOW_KEEPALIVE_ACK_TIMEOUT	= 0x60,
+	WOW_KEEPALIVE_WAKE 			= 0x61,
+	#endif/*CONFIG_WOW_KEEP_ALIVE_PATTERN*/
 	AP_OFFLOAD_WAKEUP				= 0x66,
+	NO_WAKE_RX_PAIRWISEKEY			= 0xB0,
+	NO_WAKE_RX_GTK				= 0xB1,
+	NO_WAKE_RX_DISASSOC			= 0xB2,
+	NO_WAKE_RX_DEAUTH			= 0xB3,
+	NO_WAKE_RX_EAPREQ_IDENTIFY		= 0xB4,
+	NO_WAKE_FW_DECISION_DISCONNECT		= 0xB5,
 	CLK_32K_UNLOCK					= 0xFD,
 	CLK_32K_LOCK					= 0xFE
 }WAKEUP_REASON;
+
+typedef enum _BCN_EARLY_INT_CASE{
+	TDLS_BCN_ERLY_ON,
+	TDLS_BCN_ERLY_OFF
+}BCN_EARLY_INT_CASE;
 
 /*
  * Queue Select Value in TxDesc
@@ -310,7 +242,7 @@ struct dbg_rx_counter {
 u8 rtw_hal_get_port(_adapter *adapter);
 
 #ifdef CONFIG_MBSSID_CAM
-	#define DBG_MBID_CAM_DUMP
+	/*#define DBG_MBID_CAM_DUMP*/
 
 	void rtw_mbid_cam_init(struct dvobj_priv *dvobj);
 	void rtw_mbid_cam_deinit(struct dvobj_priv *dvobj);
@@ -354,7 +286,8 @@ void dump_chip_info(HAL_VERSION	ChipVersion);
 
 #define BAND_CAP_2G			BIT0
 #define BAND_CAP_5G			BIT1
-#define BAND_CAP_BIT_NUM	2
+#define BAND_CAP_6G			BIT2
+#define BAND_CAP_BIT_NUM	3
 
 #define BW_CAP_5M		BIT0
 #define BW_CAP_10M		BIT1
@@ -395,13 +328,11 @@ u8 hal_largest_bw(_adapter *adapter, u8 in_bw);
 
 bool hal_chk_wl_func(_adapter *adapter, u8 func);
 
-int hal_com_config_channel_plan(
+void hal_com_config_channel_plan(
 		PADAPTER padapter,
-		char *hw_alpha2,
+		const char *hw_alpha2,
 		u8 hw_chplan,
-		char *sw_alpha2,
-		u8 sw_chplan,
-		u8 def_chplan,
+		u8 hw_chplan_6g,
 		BOOLEAN AutoLoadFail
 );
 
@@ -417,9 +348,12 @@ HAL_IsLegalChannel(
 		u32			Channel
 );
 
-u8	MRateToHwRate(u8 rate);
+u8 MRateToHwRate(enum MGN_RATE rate);
 
-u8	hw_rate_to_m_rate(u8 rate);
+u8 hw_rate_to_m_rate(u8 hw_rate);
+#ifdef CONFIG_RTW_DEBUG
+void dump_hw_rate_map_test(void *sel);
+#endif
 
 void	HalSetBrateCfg(
 		PADAPTER		Adapter,
@@ -436,8 +370,10 @@ void rtw_dump_fw_info(void *sel, _adapter *adapter);
 void rtw_restore_hw_port_cfg(_adapter *adapter);
 void rtw_mi_set_mac_addr(_adapter *adapter);/*set mac addr when hal_init for all iface*/
 void rtw_hal_dump_macaddr(void *sel, _adapter *adapter);
+void rtw_hal_set_hw_macaddr(PADAPTER adapter, u8 *mac_addr);
 
 void rtw_init_hal_com_default_value(PADAPTER Adapter);
+u8 rtw_hal_pause_rx_dma(_adapter *adapter);
 
 #ifdef CONFIG_FW_C2H_REG
 void c2h_evt_clear(_adapter *adapter);
@@ -469,6 +405,7 @@ u8 rtw_hal_rcr_check(_adapter *adapter, u32 check_bit);
 u8 rtw_hal_rcr_add(_adapter *adapter, u32 add);
 u8 rtw_hal_rcr_clear(_adapter *adapter, u32 clear);
 void rtw_hal_rcr_set_chk_bssid(_adapter *adapter, u8 self_action);
+void rtw_hal_rcr_set_chk_bssid_act_non(_adapter *adapter);
 
 void rtw_iface_enable_tsf_update(_adapter *adapter);
 void rtw_iface_disable_tsf_update(_adapter *adapter);
@@ -498,11 +435,15 @@ void rtw_hal_update_tx_aclt(_adapter *adapter);
 #endif
 
 void hw_var_port_switch(_adapter *adapter);
+#ifdef CONFIG_FW_MULTI_PORT_SUPPORT
+u8 rtw_hal_set_ap_bcn_imr_cmd(struct _ADAPTER *adapter, u8 enable);
+#endif
 void rtw_var_set_basic_rate(PADAPTER padapter, u8 *val);
 u8 SetHwReg(PADAPTER padapter, u8 variable, u8 *val);
 void GetHwReg(PADAPTER padapter, u8 variable, u8 *val);
 void rtw_hal_check_rxfifo_full(_adapter *adapter);
 void rtw_hal_reqtxrpt(_adapter *padapter, u8 macid);
+int rtw_get_sta_tx_stat(_adapter *adapter, u8 mac_id, u8 *macaddr);
 
 u8 SetHalDefVar(_adapter *adapter, HAL_DEF_VARIABLE variable, void *value);
 u8 GetHalDefVar(_adapter *adapter, HAL_DEF_VARIABLE variable, void *value);
@@ -618,9 +559,11 @@ void rtw_hal_ch_sw_iqk_info_backup(_adapter *adapter);
 void rtw_hal_ch_sw_iqk_info_restore(_adapter *padapter, u8 ch_sw_use_case);
 
 #ifdef CONFIG_GPIO_WAKEUP
-	void rtw_hal_switch_gpio_wl_ctrl(_adapter *padapter, u8 index, u8 enable);
-	void rtw_hal_set_output_gpio(_adapter *padapter, u8 index, u8 outputval);
-	void rtw_hal_set_input_gpio(_adapter *padapter, u8 index);
+void rtw_hal_switch_gpio_wl_ctrl(_adapter *padapter, u8 index, u8 enable);
+void rtw_hal_set_output_gpio(_adapter *padapter, u8 index, u8 outputval);
+void rtw_hal_set_input_gpio(_adapter *padapter, u8 index);
+#define GPIO_OUTPUT_LOW		0
+#define GPIO_OUTPUT_HIGH	1
 #endif
 
 #ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
@@ -669,6 +612,7 @@ enum lps_pg_hdl_id {
 	LPS_PG_PHYDM_EN,
 };
 
+u8 rtw_hal_set_lps_pg_info_cmd(_adapter *adapter);
 u8 rtw_hal_set_lps_pg_info(_adapter *adapter);
 #endif
 
@@ -686,9 +630,15 @@ struct rtl_wow_pattern {
 };
 void rtw_wow_pattern_cam_dump(_adapter *adapter);
 
+void rtw_dump_wow_pattern(void *sel, struct rtl_wow_pattern *pwow_pattern, u8 idx);
 #ifdef CONFIG_WOW_PATTERN_HW_CAM
 void rtw_wow_pattern_read_cam_ent(_adapter *adapter, u8 id, struct  rtl_wow_pattern *context);
-void rtw_dump_wow_pattern(void *sel, struct rtl_wow_pattern *pwow_pattern, u8 idx);
+#endif
+
+#ifdef CONFIG_PNO_SUPPORT
+struct pno_ssid;
+void rtw_hal_construct_ProbeReq(_adapter *padapter, u8 *pframe,
+                                u32 *pLength, struct pno_ssid *ssid);
 #endif
 
 struct rtw_ndp_info {
@@ -710,7 +660,9 @@ struct rtw_ndp_info {
 	SET_BITS_TO_LE_4BYTE(target + 2, 0, 8, _value)
 #endif /*CONFIG_WOWLAN*/
 
+#ifdef CONFIG_PROC_DEBUG
 void rtw_dump_phy_cap(void *sel, _adapter *adapter);
+#endif
 void rtw_dump_rsvd_page(void *sel, _adapter *adapter, u8 page_offset, u8 page_num);
 #ifdef CONFIG_SUPPORT_FIFO_DUMP
 void rtw_dump_fifo(void *sel, _adapter *adapter, u8 fifo_sel, u32 fifo_addr, u32 fifo_size);
@@ -765,7 +717,8 @@ void rtw_hal_beamforming_config_csirate(PADAPTER adapter);
 #endif
 #endif
 
-u8 phy_get_current_tx_num(PADAPTER pAdapter, u8 Rate);
+u8 phy_get_capable_tx_num(_adapter *adapter, enum MGN_RATE rate);
+u8 phy_get_current_tx_num(_adapter *adapter, enum MGN_RATE rate);
 
 #ifdef CONFIG_RTL8812A
 u8 * rtw_hal_set_8812a_vendor_ie(_adapter *padapter , u8 *pframe ,uint *frlen );
@@ -798,4 +751,9 @@ static inline void rtw_enter_protsel_macsleep(_adapter *padapter, u8 port_sel) {
 static inline bool rtw_assert_protsel_macsleep(_adapter *padapter, u32 addr, u8 len) {return true; }
 static inline void rtw_leave_protsel_macsleep(_adapter *padapter) {}
 #endif
+
+#ifndef RTW_HALMAC
+void rtw_hal_init_sifs_backup(_adapter *adapter);
+#endif
+
 #endif /* __HAL_COMMON_H__ */

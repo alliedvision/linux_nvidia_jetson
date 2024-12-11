@@ -1,7 +1,7 @@
-From 4db1bf11e86fa854dd505c8417ccbfe64f7aed1f Mon Sep 17 00:00:00 2001
+From 637ce82dba4301c3755db0c4e7da922ead6cd264 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 7 Jun 2011 09:19:06 +0200
-Subject: [PATCH 217/322] sched: Do not account rcu_preempt_depth on RT in
+Subject: [PATCH 217/323] sched: Do not account rcu_preempt_depth on RT in
  might_sleep()
 X-NVConfidentiality: public
 
@@ -15,7 +15,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  2 files changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
-index bb9681309e0d..cbeea5c61a3a 100644
+index a276bb69ee59c..952c9785f1860 100644
 --- a/include/linux/rcupdate.h
 +++ b/include/linux/rcupdate.h
 @@ -54,6 +54,11 @@ void __rcu_read_unlock(void);
@@ -40,10 +40,10 @@ index bb9681309e0d..cbeea5c61a3a 100644
  
  /* Internal to kernel */
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 8410fc3a493a..fe7ee4893ba0 100644
+index edf900b84ba98..4fe1208a99bd0 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -7885,7 +7885,7 @@ void __init sched_init(void)
+@@ -7880,7 +7880,7 @@ void __init sched_init(void)
  #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
  static inline int preempt_count_equals(int preempt_offset)
  {

@@ -1,7 +1,7 @@
-From 377e2a5d3a720eb634a3cd0e2a2db5902d294e4d Mon Sep 17 00:00:00 2001
+From 669183954c98a1339cd6bc10bcb646cd0748aae7 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 22 Sep 2021 19:34:40 +0200
-Subject: [PATCH 301/322] preempt: Move preempt_enable_no_resched() to the RT
+Subject: [PATCH 301/323] preempt: Move preempt_enable_no_resched() to the RT
  block
 X-NVConfidentiality: public
 
@@ -21,7 +21,7 @@ Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/include/linux/preempt.h b/include/linux/preempt.h
-index af39859f02ee..7b5b2ed55531 100644
+index af39859f02ee1..7b5b2ed55531a 100644
 --- a/include/linux/preempt.h
 +++ b/include/linux/preempt.h
 @@ -208,12 +208,12 @@ do { \

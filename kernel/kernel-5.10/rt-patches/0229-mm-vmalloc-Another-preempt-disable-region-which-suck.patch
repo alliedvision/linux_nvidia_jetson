@@ -1,7 +1,7 @@
-From e3c0f154434b0154361cbe43628c5dbc42458069 Mon Sep 17 00:00:00 2001
+From 27cf3d3a9bea7850729ef6eda3416a668cadea3c Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 12 Jul 2011 11:39:36 +0200
-Subject: [PATCH 229/322] mm/vmalloc: Another preempt disable region which
+Subject: [PATCH 229/323] mm/vmalloc: Another preempt disable region which
  sucks
 X-NVConfidentiality: public
 
@@ -14,7 +14,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  1 file changed, 8 insertions(+), 5 deletions(-)
 
 diff --git a/mm/vmalloc.c b/mm/vmalloc.c
-index 39294a38a338..f51901585a1a 100644
+index 5a0dd42347d87..aa18c5d50983c 100644
 --- a/mm/vmalloc.c
 +++ b/mm/vmalloc.c
 @@ -1542,7 +1542,7 @@ static void *new_vmap_block(unsigned int order, gfp_t gfp_mask)

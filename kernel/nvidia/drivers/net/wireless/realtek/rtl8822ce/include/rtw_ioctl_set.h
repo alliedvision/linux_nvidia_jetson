@@ -26,15 +26,15 @@ u8 rtw_set_acs_sitesurvey(_adapter *adapter);
 u8 rtw_set_802_11_infrastructure_mode(_adapter *padapter, NDIS_802_11_NETWORK_INFRASTRUCTURE networktype, u8 flags);
 u8 rtw_set_802_11_ssid(_adapter *padapter, NDIS_802_11_SSID *ssid);
 u8 rtw_set_802_11_connect(_adapter *padapter,
-			  u8 *bssid, NDIS_802_11_SSID *ssid, u16 ch);
+			  const u8 *bssid, NDIS_802_11_SSID *ssid, u16 ch);
 
-u8 rtw_validate_bssid(u8 *bssid);
+u8 rtw_validate_bssid(const u8 *bssid);
 u8 rtw_validate_ssid(NDIS_802_11_SSID *ssid);
 
 u16 rtw_get_cur_max_rate(_adapter *adapter);
 int rtw_set_scan_mode(_adapter *adapter, RT_SCAN_TYPE scan_mode);
-int rtw_set_channel_plan(_adapter *adapter, u8 channel_plan);
-int rtw_set_country(_adapter *adapter, const char *country_code);
+int rtw_set_channel_plan(_adapter *adapter, u8 channel_plan, u8 chplan_6g, enum rtw_regd_inr inr);
+int rtw_set_country(_adapter *adapter, const char *country_code, enum rtw_regd_inr inr);
 int rtw_set_band(_adapter *adapter, u8 band);
 
 #endif

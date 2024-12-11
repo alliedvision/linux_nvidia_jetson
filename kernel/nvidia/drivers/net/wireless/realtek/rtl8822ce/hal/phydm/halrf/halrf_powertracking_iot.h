@@ -62,26 +62,26 @@
 #define IQK_MATRIX_SETTINGS_NUM	(14+24+21) /* Channels_2_4G_NUM + Channels_5G_20M_NUM + Channels_5G */
 #endif
 
-extern	u32 ofdm_swing_table[OFDM_TABLE_SIZE];
-extern	u8 cck_swing_table_ch1_ch13[CCK_TABLE_SIZE][8];
-extern	u8 cck_swing_table_ch14[CCK_TABLE_SIZE][8];
+extern const u32 ofdm_swing_table[OFDM_TABLE_SIZE];
+extern const u8 cck_swing_table_ch1_ch13[CCK_TABLE_SIZE][8];
+extern const u8 cck_swing_table_ch14[CCK_TABLE_SIZE][8];
 
-extern	u32 ofdm_swing_table_new[OFDM_TABLE_SIZE];
-extern	u8 cck_swing_table_ch1_ch13_new[CCK_TABLE_SIZE][8];
-extern	u8 cck_swing_table_ch14_new[CCK_TABLE_SIZE][8];
-extern	u8 cck_swing_table_ch1_ch14_88f[CCK_TABLE_SIZE_88F][16];
-extern	u8 cck_swing_table_ch1_ch13_88f[CCK_TABLE_SIZE_88F][16];
-extern	u8 cck_swing_table_ch14_88f[CCK_TABLE_SIZE_88F][16];
-extern	u32 cck_swing_table_ch1_ch14_8723d[CCK_TABLE_SIZE_8723D];
+extern const u32 ofdm_swing_table_new[OFDM_TABLE_SIZE];
+extern const u8 cck_swing_table_ch1_ch13_new[CCK_TABLE_SIZE][8];
+extern const u8 cck_swing_table_ch14_new[CCK_TABLE_SIZE][8];
+extern const u8 cck_swing_table_ch1_ch14_88f[CCK_TABLE_SIZE_88F][16];
+extern const u8 cck_swing_table_ch1_ch13_88f[CCK_TABLE_SIZE_88F][16];
+extern const u8 cck_swing_table_ch14_88f[CCK_TABLE_SIZE_88F][16];
+extern const u32 cck_swing_table_ch1_ch14_8723d[CCK_TABLE_SIZE_8723D];
 /* JJ ADD 20161014 */
-extern	u32 cck_swing_table_ch1_ch14_8710b[CCK_TABLE_SIZE_8710B];
-extern	u32 cck_swing_table_ch1_ch14_8192f[CCK_TABLE_SIZE_8192F];
-extern	u32 cck_swing_table_ch1_ch14_8721d[CCK_TABLE_SIZE_8721D];
-extern  u32 cck_swing_table_ch1_ch14_8710c[CCK_TABLE_SIZE_8710C];
-extern  u32 cck_swing_table_03db_ch1_ch14_8710c[CCK_03DB_TABLE_SIZE_8710C];
-extern  u32 ofdm_swing_table_03DB_8710c[OFDM_03DB_TABLE_SIZE_8710C];
+extern const u32 cck_swing_table_ch1_ch14_8710b[CCK_TABLE_SIZE_8710B];
+extern const u32 cck_swing_table_ch1_ch14_8192f[CCK_TABLE_SIZE_8192F];
+extern const u32 cck_swing_table_ch1_ch14_8721d[CCK_TABLE_SIZE_8721D];
+extern const u32 cck_swing_table_ch1_ch14_8710c[CCK_TABLE_SIZE_8710C];
+extern const u32 cck_swing_table_03db_ch1_ch14_8710c[CCK_03DB_TABLE_SIZE_8710C];
+extern const u32 ofdm_swing_table_03DB_8710c[OFDM_03DB_TABLE_SIZE_8710C];
 
-extern  u32 tx_scaling_table_jaguar[TXSCALE_TABLE_SIZE];
+extern const u32 tx_scaling_table_jaguar[TXSCALE_TABLE_SIZE];
 
 /* <20121018, Kordan> In case fail to read TxPowerTrack.txt, we use the table of 88E as the default table. */
 #if (DM_ODM_SUPPORT_TYPE == ODM_CE) && defined(DM_ODM_CE_MAC80211)
@@ -99,7 +99,7 @@ odm_txpowertracking_init(
 
 struct iqk_matrix_regs_setting {
 	boolean	is_iqk_done;
-	s32		value[3][iqk_matrix_reg_num];
+	s32		value[1][iqk_matrix_reg_num];
 	boolean	is_bw_iqk_result_saved[3];
 };
 
@@ -149,8 +149,10 @@ struct dm_rf_calibration_struct {
 	s8	xtal_offset;
 	s8	xtal_offset_last;
 
-#if (RTL8710B_SUPPORT == 1 || RTL8721D_SUPPORT == 1)
+#if (RTL8710B_SUPPORT == 1)
 	struct iqk_matrix_regs_setting iqk_matrix_reg_setting[IQK_MATRIX_SETTINGS_NUM];
+#elif  (RTL8721D_SUPPORT == 1)
+	struct iqk_matrix_regs_setting iqk_matrix_reg_setting[1];
 #endif
 	u8	delta_lck;
 	s8  bb_swing_diff_2g, bb_swing_diff_5g; /* Unit: dB */
@@ -175,7 +177,7 @@ struct dm_rf_calibration_struct {
 	u8  delta_swing_table_idx_2gd_n[DELTA_SWINGIDX_SIZE];
 #endif
 
-#if (RTL8195B_SUPPORT == 1)
+#if (RTL8195B_SUPPORT == 1 || RTL8721D_SUPPORT == 1)
 	u8  delta_swing_table_idx_5ga_p[BAND_NUM][DELTA_SWINGIDX_SIZE];
 	u8  delta_swing_table_idx_5ga_n[BAND_NUM][DELTA_SWINGIDX_SIZE];
 	u8  delta_swing_table_idx_5gb_p[BAND_NUM][DELTA_SWINGIDX_SIZE];
@@ -221,6 +223,7 @@ struct dm_rf_calibration_struct {
 	u8			bb_swing_idx_cck_base;
 	u8			default_ofdm_index;
 	u8			default_cck_index;
+	s8			default_txagc_index;
 	boolean			bb_swing_flag_cck;
 
 	s8			absolute_ofdm_swing_idx[MAX_RF_PATH];

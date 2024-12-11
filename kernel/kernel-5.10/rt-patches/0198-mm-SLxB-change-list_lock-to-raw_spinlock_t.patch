@@ -1,7 +1,7 @@
-From 076117f7c78af88287e9e3a28d22f3a7dd0d28c4 Mon Sep 17 00:00:00 2001
+From 20ec3dbc913bc529f8e9c34ce08ed41a13e8401e Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Mon, 28 May 2018 15:24:22 +0200
-Subject: [PATCH 198/322] mm/SLxB: change list_lock to raw_spinlock_t
+Subject: [PATCH 198/323] mm/SLxB: change list_lock to raw_spinlock_t
 X-NVConfidentiality: public
 
 The list_lock is used with used with IRQs off on RT. Make it a raw_spinlock_t
@@ -19,7 +19,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  3 files changed, 71 insertions(+), 71 deletions(-)
 
 diff --git a/mm/slab.c b/mm/slab.c
-index b2cc2cf7d8a3..677c0651ef66 100644
+index b2cc2cf7d8a33..677c0651ef669 100644
 --- a/mm/slab.c
 +++ b/mm/slab.c
 @@ -233,7 +233,7 @@ static void kmem_cache_node_init(struct kmem_cache_node *parent)
@@ -370,7 +370,7 @@ index b2cc2cf7d8a3..677c0651ef66 100644
  	num_objs = total_slabs * cachep->num;
  	active_slabs = total_slabs - free_slabs;
 diff --git a/mm/slab.h b/mm/slab.h
-index 6952e10cf33b..ed5dd6e9e0cc 100644
+index 6952e10cf33b4..ed5dd6e9e0cca 100644
 --- a/mm/slab.h
 +++ b/mm/slab.h
 @@ -543,7 +543,7 @@ static inline void slab_post_alloc_hook(struct kmem_cache *s,
@@ -383,7 +383,7 @@ index 6952e10cf33b..ed5dd6e9e0cc 100644
  #ifdef CONFIG_SLAB
  	struct list_head slabs_partial;	/* partial list first, better asm code */
 diff --git a/mm/slub.c b/mm/slub.c
-index b0f637519ac9..863554db3323 100644
+index b0f637519ac99..863554db3323d 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -1214,7 +1214,7 @@ static noinline int free_debug_processing(

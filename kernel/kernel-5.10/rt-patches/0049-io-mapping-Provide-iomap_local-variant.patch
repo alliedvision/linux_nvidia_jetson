@@ -1,7 +1,7 @@
-From 416da3a5e28bfd3986af89077451355c82346723 Mon Sep 17 00:00:00 2001
+From 81c7df090e6625e78441fe07b0ac520e25bc398c Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:38 +0100
-Subject: [PATCH 049/322] io-mapping: Provide iomap_local variant
+Subject: [PATCH 049/323] io-mapping: Provide iomap_local variant
 X-NVConfidentiality: public
 
 Similar to kmap local provide a iomap local variant which only disables
@@ -15,7 +15,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 73 insertions(+), 31 deletions(-)
 
 diff --git a/Documentation/driver-api/io-mapping.rst b/Documentation/driver-api/io-mapping.rst
-index e33b88268554..a0cfb15988df 100644
+index e33b88268554b..a0cfb15988dfc 100644
 --- a/Documentation/driver-api/io-mapping.rst
 +++ b/Documentation/driver-api/io-mapping.rst
 @@ -20,55 +20,71 @@ A mapping object is created during driver initialization using::
@@ -120,7 +120,7 @@ index e33b88268554..a0cfb15988df 100644
  At driver close time, the io_mapping object must be freed::
  
 diff --git a/include/linux/io-mapping.h b/include/linux/io-mapping.h
-index 60e7c83e4904..c093e81310a9 100644
+index 60e7c83e49047..c093e81310a9b 100644
 --- a/include/linux/io-mapping.h
 +++ b/include/linux/io-mapping.h
 @@ -82,6 +82,21 @@ io_mapping_unmap_atomic(void __iomem *vaddr)

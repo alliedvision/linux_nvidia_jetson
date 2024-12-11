@@ -1,7 +1,7 @@
-From 1d44b53d6ef269774ae6985feba0e9f8bb235b72 Mon Sep 17 00:00:00 2001
+From 00ee50d38c5907a07241f45cae3e490b3af3169f Mon Sep 17 00:00:00 2001
 From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Tue, 22 Mar 2016 11:16:09 +0100
-Subject: [PATCH 210/322] mm/zsmalloc: copy with get_cpu_var() and locking
+Subject: [PATCH 210/323] mm/zsmalloc: copy with get_cpu_var() and locking
 X-NVConfidentiality: public
 
 get_cpu_var() disables preemption and triggers a might_sleep() splat later.
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 79 insertions(+), 6 deletions(-)
 
 diff --git a/mm/zsmalloc.c b/mm/zsmalloc.c
-index c18dc8e61d35..7dad2ff3e778 100644
+index c18dc8e61d352..7dad2ff3e7785 100644
 --- a/mm/zsmalloc.c
 +++ b/mm/zsmalloc.c
 @@ -57,6 +57,7 @@

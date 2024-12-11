@@ -1,7 +1,7 @@
-From 6128a542ea9a93afd9aa84ee635647b42959c414 Mon Sep 17 00:00:00 2001
+From 0a00e8ca221378403fbee62eabeb6b264db6bb4e Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 30 Nov 2020 01:42:10 +0106
-Subject: [PATCH 108/322] printk: add pr_flush()
+Subject: [PATCH 108/323] printk: add pr_flush()
 X-NVConfidentiality: public
 
 Provide a function to allow waiting for console printers to catch
@@ -23,7 +23,7 @@ Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
  4 files changed, 99 insertions(+), 11 deletions(-)
 
 diff --git a/include/linux/printk.h b/include/linux/printk.h
-index 410435ac15ea..83c7734e9802 100644
+index 410435ac15ea1..83c7734e98025 100644
 --- a/include/linux/printk.h
 +++ b/include/linux/printk.h
 @@ -481,6 +481,8 @@ extern int kptr_restrict;
@@ -36,7 +36,7 @@ index 410435ac15ea..83c7734e9802 100644
   * ratelimited messages with local ratelimit_state,
   * no local ratelimit_state used in the !PRINTK case
 diff --git a/kernel/panic.c b/kernel/panic.c
-index 7965f1e31224..5a1a4bf2feb3 100644
+index 7fc35d3675e1b..0681472a2041a 100644
 --- a/kernel/panic.c
 +++ b/kernel/panic.c
 @@ -244,6 +244,7 @@ void check_panic_on_warn(const char *origin)
@@ -94,7 +94,7 @@ index 7965f1e31224..5a1a4bf2feb3 100644
  	/*
  	 * If kgdb is enabled, give it a chance to run before we stop all
  	 * the other CPUs or else we won't be able to debug processes left
-@@ -629,6 +634,7 @@ static void print_oops_end_marker(void)
+@@ -637,6 +642,7 @@ static void print_oops_end_marker(void)
  {
  	init_oops_id();
  	pr_warn("---[ end trace %016llx ]---\n", (unsigned long long)oops_id);
@@ -103,10 +103,10 @@ index 7965f1e31224..5a1a4bf2feb3 100644
  
  /*
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index 58da007d7c99..14cb111fe9f0 100644
+index 0cc452e7b1a1c..3fdd06c05f4ea 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
-@@ -3233,6 +3233,12 @@ void kmsg_dump(enum kmsg_dump_reason reason)
+@@ -3256,6 +3256,12 @@ void kmsg_dump(enum kmsg_dump_reason reason)
  			sync_mode = true;
  			pr_info("enabled sync mode\n");
  		}
@@ -119,7 +119,7 @@ index 58da007d7c99..14cb111fe9f0 100644
  	}
  
  	rcu_read_lock();
-@@ -3512,3 +3518,76 @@ void console_atomic_unlock(unsigned int flags)
+@@ -3535,3 +3541,76 @@ void console_atomic_unlock(unsigned int flags)
  	prb_unlock(&printk_cpulock, flags);
  }
  EXPORT_SYMBOL(console_atomic_unlock);
@@ -197,7 +197,7 @@ index 58da007d7c99..14cb111fe9f0 100644
 +}
 +EXPORT_SYMBOL(pr_flush);
 diff --git a/lib/bug.c b/lib/bug.c
-index 4ab398a2de93..9c681f29e61e 100644
+index 4ab398a2de938..9c681f29e61e6 100644
 --- a/lib/bug.c
 +++ b/lib/bug.c
 @@ -202,6 +202,7 @@ enum bug_trap_type report_bug(unsigned long bugaddr, struct pt_regs *regs)

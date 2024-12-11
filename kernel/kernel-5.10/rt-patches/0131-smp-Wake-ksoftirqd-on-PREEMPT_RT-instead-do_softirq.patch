@@ -1,7 +1,7 @@
-From 23f938cd2a2f9b0d02d56fa7d9e30cea2e5d590e Mon Sep 17 00:00:00 2001
+From ba887984abab3b04eb536c9db1231ce9636f6bb5 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 15 Feb 2021 18:44:12 +0100
-Subject: [PATCH 131/322] smp: Wake ksoftirqd on PREEMPT_RT instead
+Subject: [PATCH 131/323] smp: Wake ksoftirqd on PREEMPT_RT instead
  do_softirq().
 X-NVConfidentiality: public
 
@@ -19,7 +19,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 12 insertions(+), 2 deletions(-)
 
 diff --git a/kernel/smp.c b/kernel/smp.c
-index b0684b4c111e..4aaf11aa729c 100644
+index b0684b4c111e9..4aaf11aa729cf 100644
 --- a/kernel/smp.c
 +++ b/kernel/smp.c
 @@ -450,8 +450,18 @@ void flush_smp_call_function_from_idle(void)

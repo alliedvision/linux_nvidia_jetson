@@ -27,22 +27,22 @@ def build_kernel_deb(args, board):
   file.close()
 
   install_modules(args, board)
-  t.execute(['sudo', 'rm', '-rf', board.build_dir / "Linux_for_Tegra/kernel/avt/kernel/debian/out/lib/firmware"])
-  t.execute(['sudo', 'rm', '-rf', board.build_dir / f"Linux_for_Tegra/kernel/avt/kernel/debian/out/lib/modules/{kernel_release}/build"])
-  t.execute(['sudo', 'rm', '-rf', board.build_dir / f"Linux_for_Tegra/kernel/avt/kernel/debian/out/lib/modules/{kernel_release}/source"])
+  t.execute(['rm', '-rf', board.build_dir / "Linux_for_Tegra/kernel/avt/kernel/debian/out/lib/firmware"])
+  t.execute(['rm', '-rf', board.build_dir / f"Linux_for_Tegra/kernel/avt/kernel/debian/out/lib/modules/{kernel_release}/build"])
+  t.execute(['rm', '-rf', board.build_dir / f"Linux_for_Tegra/kernel/avt/kernel/debian/out/lib/modules/{kernel_release}/source"])
 
   shutil.copy(common.common_dir(args) / "kernel/arch/arm64/boot/Image", board.build_dir / "Linux_for_Tegra/kernel/avt/kernel/debian/out/boot/Image")
 
-  if 't19x' in board.bups:
+  if 'tegra194' in board.dtb_filters:
     logging.info("Signing kernel image for t19x")
     shutil.copy(board.build_dir / "Linux_for_Tegra/kernel/avt/kernel/debian/out/boot/Image", board.build_dir / "Linux_for_Tegra/kernel/avt/kernel/debian/out/boot/Image.t19x")
-    t.execute(['sudo',board.build_dir / f"Linux_for_Tegra/l4t_sign_image.sh",'--file','Image.t19x','--chip','0x19','--type','kernel'],cwd=board.build_dir / "Linux_for_Tegra/kernel/avt/kernel/debian/out/boot/")
+    t.execute([board.build_dir / f"Linux_for_Tegra/l4t_sign_image.sh",'--file','Image.t19x','--chip','0x19','--type','kernel'],cwd=board.build_dir / "Linux_for_Tegra/kernel/avt/kernel/debian/out/boot/")
 
-  if 't23x' in board.bups:
+  if 'tegra234' in board.dtb_filters:
     logging.info("Adding display drivers")
     os.makedirs(board.build_dir / "Linux_for_Tegra/kernel/origin/display", exist_ok=True)
     t.execute(["tar","xf",board.build_dir / "Linux_for_Tegra/kernel/kernel_display_supplements.tbz2","-C",board.build_dir / "Linux_for_Tegra/kernel/origin/display"])
-    t.execute(['sudo', 'cp', '-a', board.build_dir / f"Linux_for_Tegra/kernel/origin/display/lib/modules/{KERNEL_RELEASE}/extra", board.build_dir / f"Linux_for_Tegra/kernel/avt/kernel/debian/out/lib/modules/{kernel_release}/extra"])
+    t.execute(['cp', '-a', board.build_dir / f"Linux_for_Tegra/kernel/origin/display/lib/modules/{KERNEL_RELEASE}/extra", board.build_dir / f"Linux_for_Tegra/kernel/avt/kernel/debian/out/lib/modules/{kernel_release}/extra"])
 
 
   for ef in board.kernel_extra_files:
@@ -101,7 +101,7 @@ def build_dtb_deb(args, board):
   sign_device_trees(args, board, "Linux_for_Tegra/kernel/avt/kernel-dtbs/debian/out/boot")
 
   base_dir = Path(__file__).parent
-  for f in ['rules', 'install', 'compat', 'source/format']:
+  for f in ['rules', 'install', 'compat', 'source/format', 'postinst', 'postrm', 'config', 'templates']:
     dstfile = board.build_dir / "Linux_for_Tegra/kernel/avt/kernel-dtbs/debian" / f
     os.makedirs(dstfile.parent, exist_ok=True)
     shutil.copy(base_dir / "files/kernel-dtb-deb" / f, dstfile)
@@ -110,40 +110,10 @@ def build_dtb_deb(args, board):
     dstfile = board.build_dir / "Linux_for_Tegra/kernel/avt/kernel-dtbs/debian" / f
     os.makedirs(dstfile.parent, exist_ok=True)
     t.apply_template(base_dir / "files/kernel-dtb-deb" / f, dstfile, board)
-
-  for f in ['postinst', 'postrm']:
-    shutil.copy(board.build_dir / "Linux_for_Tegra/kernel/origin/kernel-dtbs/debian" / f, board.build_dir / "Linux_for_Tegra/kernel/avt/kernel-dtbs/debian")
   
   logging.info("Building actual Debian package")
   env = { **os.environ, 'CC': 'aarch64-linux-gnu-gcc' }
   t.execute(['dpkg-buildpackage', '-uc', '-b', '-d', '-a', 'arm64'], cwd=board.build_dir / "Linux_for_Tegra/kernel/avt/kernel-dtbs", env=env)
-
-def build_bootloader_deb(args, board):
-  t = tools.tools(args)
-  logging.info("Building AVT Bootloader Package")
-  for subdir in ['out/usr/share/doc'] + [f"out/{PurePath(e[1]).parent}" for e in board.bootloader_payload_files]:
-    os.makedirs(board.build_dir / f"Linux_for_Tegra/kernel/avt/bootloader/debian/{subdir}", exist_ok=True)
-
-
-  base_dir = Path(__file__).parent
-  for f in ['rules', 'install', 'compat', 'source/format', 'postinst', 'postrm', 'config', 'templates']:
-    dstfile = board.build_dir / "Linux_for_Tegra/kernel/avt/bootloader/debian" / f
-    os.makedirs(dstfile.parent, exist_ok=True)
-    shutil.copy(base_dir / "files/bootloader" / f, dstfile)
-
-  for ef in board.bootloader_payload_files:
-    shutil.copy(board.build_dir / f"Linux_for_Tegra/{ef[0]}", board.build_dir / f"Linux_for_Tegra/kernel/avt/bootloader/debian/out/{ef[1]}")
-
-  for f in ['control', 'changelog']:
-    dstfile = board.build_dir / "Linux_for_Tegra/kernel/avt/bootloader/debian" / f
-    os.makedirs(dstfile.parent, exist_ok=True)
-    t.apply_template(base_dir / "files/bootloader" / f, dstfile, board)
-
-
-  logging.info("Building actual Debian package")
-  env = { **os.environ, 'CC': 'aarch64-linux-gnu-gcc' }
-
-  t.execute(['dpkg-buildpackage', '-uc', '-b', '-d', '-a', 'arm64'], cwd=board.build_dir / "Linux_for_Tegra/kernel/avt/bootloader", env=env)
 
 def build_headers_deb(args, board):
   t = tools.tools(args)
@@ -265,8 +235,8 @@ def build_bups(args, board):
   t = tools.tools(args)
   for bup in board.bups:
     logging.info(f"BUP for {bup}")
-    t.execute(['sudo', './l4t_generate_soc_bup.sh', bup], cwd=board.build_dir / "Linux_for_Tegra")
-    t.execute(['sudo', board.build_dir / 'Linux_for_Tegra/generate_capsule/l4t_generate_soc_capsule.sh',
+    t.execute(['./l4t_generate_soc_bup.sh', bup], cwd=board.build_dir / "Linux_for_Tegra")
+    t.execute([board.build_dir / 'Linux_for_Tegra/generate_capsule/l4t_generate_soc_capsule.sh',
                '-i','bl_only_payload','-o','TEGRA_BL.Cap',soc_from_bup(bup)]
               , cwd=board.build_dir / f"Linux_for_Tegra/bootloader/payloads_{bup}")
 
@@ -277,7 +247,7 @@ def install_modules(args, board):
   t = tools.tools(args)
   env = { **os.environ, 'ARCH': 'arm64', 'CROSS_COMPILE': common.common_dir(args) / 'gcc/bin/aarch64-linux-gnu-', 'LANG': 'C' }
   kernel_build_dir=common.common_dir(args) / "kernel"
-  t.execute(['sudo', 'make', f'O={kernel_build_dir}', f'INSTALL_MOD_PATH={board.build_dir / "Linux_for_Tegra/kernel/avt/kernel/debian/out"}', 'modules_install'], cwd=build.kernel_source_dir(args), env=env)
+  t.execute(['make', f'O={kernel_build_dir}', f'INSTALL_MOD_PATH={board.build_dir / "Linux_for_Tegra/kernel/avt/kernel/debian/out"}', 'modules_install'], cwd=build.kernel_source_dir(args), env=env)
 
 
 def get_dtb_names(args, board):
@@ -287,18 +257,18 @@ def get_dtb_names(args, board):
 def copy_device_trees(args, board, subdir):
   logging.info(f"Copying device tree blobs");
   t = tools.tools(args)
-  t.execute(["sudo", "cp"] + get_dtb_names(args, board) + [board.build_dir / subdir])
+  t.execute(["cp"] + get_dtb_names(args, board) + [board.build_dir / subdir])
 
 def sign_device_trees(args,board,subdir):
   t = tools.tools(args)
   p = board.build_dir / subdir
   for f in p.glob('tegra194*.dtb'):
-    t.execute(["sudo",board.build_dir / f"Linux_for_Tegra/l4t_sign_image.sh",'--file',f.name,'--chip','0x19','--type','kernel_dtb'],cwd=p)
+    t.execute([board.build_dir / f"Linux_for_Tegra/l4t_sign_image.sh",'--file',f.name,'--chip','0x19','--type','kernel_dtb'],cwd=p)
 
 def copy_kernel_image(args, board):
   t = tools.tools(args)
   logging.info(f"Copying kernel image");
-  t.execute(["sudo", "cp", common.common_dir(args) / "kernel/arch/arm64/boot/Image", board.build_dir / "Linux_for_Tegra/kernel"])
+  t.execute(["cp", common.common_dir(args) / "kernel/arch/arm64/boot/Image", board.build_dir / "Linux_for_Tegra/kernel"])
 
 
 def copy_files_to_l4t(args, board):
@@ -309,7 +279,7 @@ def clean_deploy_directory(args,board):
   if os.path.exists(board.build_dir / "Linux_for_Tegra/kernel/avt"):
     t = tools.tools(args)
     logging.info("Cleaning debain package build directory")
-    t.execute(['sudo', 'rm', '-rf', board.build_dir / "Linux_for_Tegra/kernel/avt"])
+    t.execute(['rm', '-rf', board.build_dir / "Linux_for_Tegra/kernel/avt"])
 
 
 def deploy(args, board):
@@ -320,7 +290,6 @@ def deploy(args, board):
   extract_debs(args, board)
   build_kernel_deb(args, board)
   build_dtb_deb(args, board)
-  build_bootloader_deb(args,board)
   build_headers_deb(args,board)
   build_repository(args, board)
   sign_repository(args,board)

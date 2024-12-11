@@ -148,6 +148,7 @@ int nvgpu_acr_init(struct gk20a *g)
 		nvgpu_gv11b_acr_sw_init(g, g->acr);
 		break;
 	case NVGPU_GPUID_GA10B:
+		g->acr->is_lsf_encrypt_support = true;
 		nvgpu_ga10b_acr_sw_init(g, g->acr);
 		break;
 #ifdef CONFIG_NVGPU_DGPU

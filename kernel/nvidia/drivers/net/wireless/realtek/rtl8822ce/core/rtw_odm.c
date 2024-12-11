@@ -71,6 +71,7 @@ void rtw_odm_adaptivity_ver_msg(void *sel, _adapter *adapter)
 
 #define RTW_ADAPTIVITY_EN_DISABLE 0
 #define RTW_ADAPTIVITY_EN_ENABLE 1
+#define RTW_ADAPTIVITY_EN_AUTO 2
 
 void rtw_odm_adaptivity_en_msg(void *sel, _adapter *adapter)
 {
@@ -82,6 +83,8 @@ void rtw_odm_adaptivity_en_msg(void *sel, _adapter *adapter)
 		_RTW_PRINT_SEL(sel, "DISABLE\n");
 	else if (regsty->adaptivity_en == RTW_ADAPTIVITY_EN_ENABLE)
 		_RTW_PRINT_SEL(sel, "ENABLE\n");
+	else if (regsty->adaptivity_en == RTW_ADAPTIVITY_EN_AUTO)
+		_RTW_PRINT_SEL(sel, "AUTO\n");
 	else
 		_RTW_PRINT_SEL(sel, "INVALID\n");
 }
@@ -92,6 +95,9 @@ void rtw_odm_adaptivity_en_msg(void *sel, _adapter *adapter)
 void rtw_odm_adaptivity_mode_msg(void *sel, _adapter *adapter)
 {
 	struct registry_priv *regsty = &adapter->registrypriv;
+
+	if (regsty->adaptivity_en != RTW_ADAPTIVITY_EN_ENABLE)
+		return;
 
 	RTW_PRINT_SEL(sel, "RTW_ADAPTIVITY_MODE_");
 
@@ -115,10 +121,32 @@ bool rtw_odm_adaptivity_needed(_adapter *adapter)
 	struct registry_priv *regsty = &adapter->registrypriv;
 	bool ret = _FALSE;
 
-	if (regsty->adaptivity_en == RTW_ADAPTIVITY_EN_ENABLE)
+	if (regsty->adaptivity_en)
 		ret = _TRUE;
 
 	return ret;
+}
+
+void rtw_odm_adaptivity_update(struct dvobj_priv *dvobj)
+{
+	HAL_DATA_TYPE *hal_data = GET_HAL_DATA(dvobj_get_primary_adapter(dvobj));
+	struct rf_ctl_t *rfctl = dvobj_to_rfctl(dvobj);
+	struct dm_struct *odm = dvobj_to_phydm(dvobj);
+	u8 edcca_mode = RTW_EDCCA_NORMAL;
+
+	if (hal_data->current_band_type == BAND_ON_2_4G)
+		edcca_mode = rfctl->edcca_mode_2g;
+	#if CONFIG_IEEE80211_BAND_5GHZ
+	else if (hal_data->current_band_type == BAND_ON_5G)
+		edcca_mode = rfctl->edcca_mode_5g;
+	#endif
+	#if CONFIG_IEEE80211_BAND_6GHZ
+	else if (hal_data->current_band_type == BAND_ON_6G)
+		edcca_mode = rfctl->edcca_mode_6g;
+	#endif
+
+	rfctl->adaptivity_en = (edcca_mode == RTW_EDCCA_NORMAL || edcca_mode == RTW_EDCCA_MODE_NUM) ? 0 : 1;
+	phydm_adaptivity_info_init(odm, PHYDM_ADAPINFO_CARRIER_SENSE_ENABLE, edcca_mode == RTW_EDCCA_CS ? TRUE : FALSE);
 }
 
 void rtw_odm_adaptivity_parm_msg(void *sel, _adapter *adapter)
@@ -160,6 +188,7 @@ void rtw_odm_acquirespinlock(_adapter *adapter,	enum rt_spinlock_type type)
 	switch (type) {
 	case RT_IQK_SPINLOCK:
 		_enter_critical_bh(&pHalData->IQKSpinLock, &irqL);
+		break;
 	default:
 		break;
 	}
@@ -173,29 +202,15 @@ void rtw_odm_releasespinlock(_adapter *adapter,	enum rt_spinlock_type type)
 	switch (type) {
 	case RT_IQK_SPINLOCK:
 		_exit_critical_bh(&pHalData->IQKSpinLock, &irqL);
+		break;
 	default:
 		break;
 	}
 }
 
-inline u8 rtw_odm_get_dfs_domain(struct dvobj_priv *dvobj)
+s16 rtw_odm_get_tx_power_mbm(struct dm_struct *dm, u8 rfpath, u8 rate, u8 bw, u8 cch)
 {
-#ifdef CONFIG_DFS_MASTER
-	struct dm_struct *pDM_Odm = dvobj_to_phydm(dvobj);
-
-	return pDM_Odm->dfs_region_domain;
-#else
-	return PHYDM_DFS_DOMAIN_UNKNOWN;
-#endif
-}
-
-inline u8 rtw_odm_dfs_domain_unknown(struct dvobj_priv *dvobj)
-{
-#ifdef CONFIG_DFS_MASTER
-	return rtw_odm_get_dfs_domain(dvobj) == PHYDM_DFS_DOMAIN_UNKNOWN;
-#else
-	return 1;
-#endif
+	return phy_get_txpwr_single_mbm(dm->adapter, rfpath, mgn_rate_to_rs(rate), rate, bw, cch, 0, 0, 0, NULL);
 }
 
 #ifdef CONFIG_DFS_MASTER
@@ -218,6 +233,20 @@ inline void rtw_odm_radar_detect_enable(_adapter *adapter)
 inline BOOLEAN rtw_odm_radar_detect(_adapter *adapter)
 {
 	return phydm_radar_detect(adapter_to_phydm(adapter));
+}
+
+static enum phydm_dfs_region_domain _rtw_dfs_regd_to_phydm[] = {
+	[RTW_DFS_REGD_NONE]	= PHYDM_DFS_DOMAIN_UNKNOWN,
+	[RTW_DFS_REGD_FCC]	= PHYDM_DFS_DOMAIN_FCC,
+	[RTW_DFS_REGD_MKK]	= PHYDM_DFS_DOMAIN_MKK,
+	[RTW_DFS_REGD_ETSI]	= PHYDM_DFS_DOMAIN_ETSI,
+};
+
+#define rtw_dfs_regd_to_phydm(region) (((region) >= RTW_DFS_REGD_NUM) ? _rtw_dfs_regd_to_phydm[RTW_DFS_REGD_NONE] : _rtw_dfs_regd_to_phydm[(region)])
+
+void rtw_odm_update_dfs_region(struct dvobj_priv *dvobj)
+{
+	odm_cmn_info_init(dvobj_to_phydm(dvobj), ODM_CMNINFO_DFS_REGION_DOMAIN, rtw_dfs_regd_to_phydm(rtw_rfctl_get_dfs_domain(dvobj_to_rfctl(dvobj))));
 }
 
 inline u8 rtw_odm_radar_detect_polling_int_ms(struct dvobj_priv *dvobj)

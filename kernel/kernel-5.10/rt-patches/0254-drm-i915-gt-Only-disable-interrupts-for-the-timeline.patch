@@ -1,7 +1,7 @@
-From 3c19e82e81fab96de8c0759c0fcee57a3c9e3aa1 Mon Sep 17 00:00:00 2001
+From 6f49beacfa9efaf2a07120efc92a0b5e2f24cd4e Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 7 Jul 2020 12:25:11 +0200
-Subject: [PATCH 254/322] drm/i915/gt: Only disable interrupts for the timeline
+Subject: [PATCH 254/323] drm/i915/gt: Only disable interrupts for the timeline
  lock on !force-threaded
 X-NVConfidentiality: public
 
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 5 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/gpu/drm/i915/gt/intel_engine_pm.c b/drivers/gpu/drm/i915/gt/intel_engine_pm.c
-index f7b2e07e2229..313d8a28e776 100644
+index f9fdbd79c0f37..fe71184156818 100644
 --- a/drivers/gpu/drm/i915/gt/intel_engine_pm.c
 +++ b/drivers/gpu/drm/i915/gt/intel_engine_pm.c
 @@ -60,9 +60,10 @@ static int __engine_unpark(struct intel_wakeref *wf)

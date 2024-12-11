@@ -1,7 +1,7 @@
-From 082d390b33a78b7a81323f2e99218460261ef135 Mon Sep 17 00:00:00 2001
+From 94d10691551755fdd4aa970c860833deaf0398d9 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Tue, 8 Jun 2021 00:37:34 -0400
-Subject: [PATCH 293/322] sched: Fix affine_move_task() self-concurrency
+Subject: [PATCH 293/323] sched: Fix affine_move_task() self-concurrency
 X-NVConfidentiality: public
 
 commit 9e81889c7648d48dd5fe13f41cbc99f3c362484a upstream.
@@ -33,7 +33,7 @@ Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
  1 file changed, 12 insertions(+), 3 deletions(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 438a78c645b5..ed2abf85a489 100644
+index 19d9814b32951..265903444f25d 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1916,6 +1916,7 @@ struct migration_arg {

@@ -1,7 +1,7 @@
-From 29046ed5d98dff5a5021ceff00362924f24fdb3e Mon Sep 17 00:00:00 2001
+From 7b7bbf2322510bd180dcdb027edaa6f5e83df4ad Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:14 +0100
-Subject: [PATCH 120/322] asm-generic/irqstat: Add optional __nmi_count member
+Subject: [PATCH 120/323] asm-generic/irqstat: Add optional __nmi_count member
 X-NVConfidentiality: public
 
 Add an optional __nmi_count member to irq_cpustat_t so more architectures
@@ -16,7 +16,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 3 insertions(+)
 
 diff --git a/include/asm-generic/hardirq.h b/include/asm-generic/hardirq.h
-index d14214dfc10b..f5dd99781e3c 100644
+index d14214dfc10b3..f5dd99781e3c6 100644
 --- a/include/asm-generic/hardirq.h
 +++ b/include/asm-generic/hardirq.h
 @@ -7,6 +7,9 @@

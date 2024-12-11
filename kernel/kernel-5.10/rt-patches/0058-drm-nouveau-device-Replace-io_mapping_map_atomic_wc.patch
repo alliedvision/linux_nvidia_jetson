@@ -1,7 +1,7 @@
-From d5529a12c0635e9874e761c9e028d836536b9857 Mon Sep 17 00:00:00 2001
+From 5b2242b02280958752c23022b009aea827932c86 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:47 +0100
-Subject: [PATCH 058/322] drm/nouveau/device: Replace
+Subject: [PATCH 058/323] drm/nouveau/device: Replace
  io_mapping_map_atomic_wc()
 X-NVConfidentiality: public
 
@@ -22,7 +22,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/gpu/drm/nouveau/nvkm/subdev/devinit/fbmem.h b/drivers/gpu/drm/nouveau/nvkm/subdev/devinit/fbmem.h
-index 6c5bbff12eb4..411f91ee20fa 100644
+index 6c5bbff12eb49..411f91ee20fa6 100644
 --- a/drivers/gpu/drm/nouveau/nvkm/subdev/devinit/fbmem.h
 +++ b/drivers/gpu/drm/nouveau/nvkm/subdev/devinit/fbmem.h
 @@ -60,19 +60,19 @@ fbmem_fini(struct io_mapping *fb)

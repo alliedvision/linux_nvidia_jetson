@@ -18,7 +18,7 @@
 #include "../rtl8822c.h"	/* rtl8822c_get_tx_desc_size() */
 #include "rtl8822ce.h"
 
-static u8 pci_write_port_not_xmitframe(void *d,  u32 size, u8 *pBuf,  u8 qsel)
+static u8 pci_write_port_not_xmitframe(void *d,  u32 size, dma_addr_t mapping,  u8 qsel)
 {
 	struct dvobj_priv *pobj = (struct dvobj_priv *)d;
 	struct pci_dev *pdev = pobj->ppcidev;
@@ -26,15 +26,9 @@ static u8 pci_write_port_not_xmitframe(void *d,  u32 size, u8 *pBuf,  u8 qsel)
 	u8 *txbd;
 	dma_addr_t txbd_dma;
 	u8 ret = _SUCCESS;
-	dma_addr_t mapping;
 	u16 tx_page_size = 128;
 	u16 tx_page_used = 0;
 	int i;
-
-
-	/* map TX DESC buf_addr (including TX DESC + tx data) */
-	mapping = pci_map_single(pdev, pBuf,
-		 size + TX_WIFI_INFO_SIZE, PCI_DMA_TODEVICE);
 
 	/* Calculate page size.
 	 * Total buffer length including TX_WIFI_INFO and PacketLen */
@@ -44,25 +38,29 @@ static u8 pci_write_port_not_xmitframe(void *d,  u32 size, u8 *pBuf,  u8 qsel)
 			tx_page_used++;
 	}
 
-	txbd = pci_alloc_consistent(pdev, sizeof(struct tx_buf_desc), &txbd_dma);
+	txbd = dma_alloc_coherent(&pdev->dev,
+		sizeof(struct tx_buf_desc), &txbd_dma, GFP_ATOMIC);
 
 	if (!txbd) {
-		pci_unmap_single(pdev, mapping,
-			size + TX_WIFI_INFO_SIZE, PCI_DMA_FROMDEVICE);
-
-		return _FALSE;
+		ret = _FAIL;
+		goto DMA_FREE;
 	}
+
 	/* BD init */
 	if (qsel == HALMAC_TXDESC_QSEL_H2C_CMD) {
 		rtw_write32(padapter, REG_H2CQ_TXBD_DESA_8822C,
 		    txbd_dma & DMA_BIT_MASK(32));
 
-#ifdef CONFIG_64BIT_DMA
+	#ifdef CONFIG_64BIT_DMA
 		rtw_write32(padapter, REG_H2CQ_TXBD_DESA_8822C + 4,
 		    ((u64)txbd_dma) >> 32);
-#endif
+	#endif
 		rtw_write32(padapter, REG_H2CQ_TXBD_NUM_8822C,
 			2 | ((RTL8822CE_SEG_NUM << 12) & 0x3000));
+
+		/* Reset the H2CQ R/W point index to 0 */
+		rtw_write32(padapter, REG_H2CQ_CSR_8822C,
+			    rtw_read32(padapter, REG_H2CQ_CSR_8822C) | BIT8 | BIT16);
 	} else {
 		rtw_write32(padapter, REG_BCNQ_TXBD_DESA_8822C,
 			txbd_dma & DMA_BIT_MASK(32));
@@ -87,6 +85,9 @@ static u8 pci_write_port_not_xmitframe(void *d,  u32 size, u8 *pBuf,  u8 qsel)
 	SET_TX_BD_PSB(txbd, tx_page_used);
 	/* starting addr of TXDESC */
 	SET_TX_BD_PHYSICAL_ADDR0_LOW(txbd, mapping);
+#ifdef CONFIG_64BIT_DMA
+	SET_TX_BD_PHYSICAL_ADDR0_HIGH(txbd, (u32)(mapping >> 32));
+#endif
 
 	/*
 	 * It is assumed that in linux implementation, packet is coalesced
@@ -97,6 +98,10 @@ static u8 pci_write_port_not_xmitframe(void *d,  u32 size, u8 *pBuf,  u8 qsel)
 	SET_TXBUFFER_DESC_AMSDU_WITH_OFFSET(txbd, 1, 0);
 	SET_TXBUFFER_DESC_ADD_LOW_WITH_OFFSET(txbd, 1,
 		mapping + TX_WIFI_INFO_SIZE); /* pkt */
+#ifdef CONFIG_64BIT_DMA
+	SET_TXBUFFER_DESC_ADD_HIGH_WITH_OFFSET(txbd, 1,
+		(u32)((mapping + TX_WIFI_INFO_SIZE) >> 32)); /* pkt */
+#endif
 
 	wmb();
 
@@ -111,10 +116,8 @@ static u8 pci_write_port_not_xmitframe(void *d,  u32 size, u8 *pBuf,  u8 qsel)
 
 	udelay(100);
 
-	pci_free_consistent(pdev, sizeof(struct tx_buf_desc), txbd, txbd_dma);
-
-	pci_unmap_single(pdev, mapping, size + TX_WIFI_INFO_SIZE,
-		PCI_DMA_FROMDEVICE);
+DMA_FREE:
+	dma_free_coherent(&pdev->dev, sizeof(struct tx_buf_desc), txbd, txbd_dma);
 
 	return ret;
 }
@@ -122,9 +125,11 @@ static u8 pci_write_port_not_xmitframe(void *d,  u32 size, u8 *pBuf,  u8 qsel)
 static u8 pci_write_data_not_xmitframe(void *d, u8 *pBuf, u32 size, u8 qsel)
 {
 	struct dvobj_priv *pobj = (struct dvobj_priv *)d;
+	struct pci_dev *pdev = pobj->ppcidev;
 	PADAPTER padapter = dvobj_get_primary_adapter(pobj);
 	struct halmac_adapter *halmac = dvobj_to_halmac((struct dvobj_priv *)d);
 	struct halmac_api *api = HALMAC_GET_API(halmac);
+	dma_addr_t mapping;
 	u32 desclen = 0;
 	u32 len = 0;
 	u8 *buf = NULL;
@@ -139,13 +144,21 @@ static u8 pci_write_data_not_xmitframe(void *d, u8 *pBuf, u32 size, u8 qsel)
 	desclen = rtl8822c_get_tx_desc_size(padapter);
 	len = desclen + size;
 
+#ifdef CONFIG_PCIE_DMA_COHERENT
+	buf = dma_alloc_coherent(&pdev->dev, len, &mapping, GFP_KERNEL);
+
+	if (!buf) {
+		RTW_ERR("%s: dma alloc coherent buffer fail!\n", __func__);
+		return _FALSE;
+	}
+#else
 	buf = rtw_zmalloc(len);
 
 	if (!buf) {
 		RTW_ERR("%s: alloc buffer fail!\n", __func__);
 		return _FALSE;
 	}
-
+#endif
 	/* copy data */
 	_rtw_memcpy(buf + desclen, pBuf, size);
 
@@ -164,16 +177,25 @@ static u8 pci_write_data_not_xmitframe(void *d, u8 *pBuf, u32 size, u8 qsel)
 
 	api->halmac_fill_txdesc_checksum(halmac, buf);
 
-	ret = pci_write_port_not_xmitframe(d, size, buf, qsel);
+#ifndef CONFIG_PCIE_DMA_COHERENT
+	/* map TX DESC buf_addr (including TX DESC + tx data) */
+	mapping = dma_map_single(&pdev->dev, buf, len, DMA_TO_DEVICE);
+#endif
+	ret = pci_write_port_not_xmitframe(d, size, mapping, qsel);
 
 	if (ret == _SUCCESS)
 		ret = _TRUE;
 	else
 		ret = _FALSE;
 
+#ifdef CONFIG_PCIE_DMA_COHERENT
+	dma_free_coherent(&pdev->dev, len, buf, mapping);
+#else
+	dma_unmap_single(&pdev->dev, mapping, len, DMA_FROM_DEVICE);
 	rtw_mfree(buf, len);
+#endif
 
-	return _TRUE;
+	return ret;
 }
 
 static u8 pci_write_data_rsvd_page_xmitframe(void *d, u8 *pBuf, u32 size)
@@ -192,6 +214,7 @@ static u8 pci_write_data_rsvd_page_xmitframe(void *d, u8 *pBuf, u32 size)
 	u32 poll = 0;
 	u8 *txbd;
 	BOOLEAN bcn_valid = _FALSE;
+	dma_addr_t mapping;
 
 	if (size + TXDESC_OFFSET > MAX_CMDBUF_SZ) {
 		RTW_INFO("%s: total buffer size(%d) > MAX_CMDBUF_SZ(%d)\n"
@@ -239,8 +262,14 @@ static u8 pci_write_data_rsvd_page_xmitframe(void *d, u8 *pBuf, u32 size)
 	} while (!bcn_valid && DLBcnCount <= 100 && !RTW_CANNOT_RUN(padapter));
 
 	txbd = (u8 *)(&ring->buf_desc[0]);
-	pci_unmap_single(pdev, GET_TX_BD_PHYSICAL_ADDR0_LOW(txbd),
-		pxmitbuf->len, PCI_DMA_TODEVICE);
+
+#ifndef CONFIG_PCIE_DMA_COHERENT
+	mapping = GET_TX_BD_PHYSICAL_ADDR0_LOW(txbd);
+#ifdef CONFIG_64BIT_DMA
+	mapping |= (dma_addr_t)GET_TX_BD_PHYSICAL_ADDR0_HIGH(txbd) << 32;
+#endif
+	dma_unmap_single(&pdev->dev, mapping, pxmitbuf->len, DMA_TO_DEVICE);
+#endif
 
 	return _TRUE;
 }
@@ -334,11 +363,18 @@ int rtl8822ce_halmac_init_adapter(PADAPTER padapter)
 	struct dvobj_priv *d;
 	struct halmac_platform_api *api;
 	int err;
+	u16 tmp;
 
 	d = adapter_to_dvobj(padapter);
 	api = &rtw_halmac_platform_api;
 	api->SEND_RSVD_PAGE = pci_write_data_rsvd_page;
 	api->SEND_H2C_PKT = pci_write_data_h2c;
+
+#ifdef CONFIG_64BIT_DMA
+	tmp = rtw_read16(padapter, REG_RX_RXBD_NUM_8822C);
+	/* using 64bit */
+	rtw_write16(padapter, REG_RX_RXBD_NUM_8822C, tmp | 0x8000);
+#endif
 
 	err = rtw_halmac_init_adapter(d, api);
 

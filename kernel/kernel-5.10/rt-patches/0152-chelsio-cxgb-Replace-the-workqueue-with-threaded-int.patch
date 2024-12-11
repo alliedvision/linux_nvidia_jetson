@@ -1,7 +1,7 @@
-From 0c576db0e8c04be04329ca158439fda5abea8abf Mon Sep 17 00:00:00 2001
+From f0affc8e53a54079441f90ab769a4ca8497d82b3 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 2 Feb 2021 18:01:03 +0100
-Subject: [PATCH 152/322] chelsio: cxgb: Replace the workqueue with threaded
+Subject: [PATCH 152/323] chelsio: cxgb: Replace the workqueue with threaded
  interrupt
 X-NVConfidentiality: public
 
@@ -30,7 +30,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  5 files changed, 55 insertions(+), 54 deletions(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb/common.h b/drivers/net/ethernet/chelsio/cxgb/common.h
-index 6475060649e9..e999a9b9fe6c 100644
+index 6475060649e90..e999a9b9fe6cc 100644
 --- a/drivers/net/ethernet/chelsio/cxgb/common.h
 +++ b/drivers/net/ethernet/chelsio/cxgb/common.h
 @@ -238,7 +238,6 @@ struct adapter {
@@ -60,7 +60,7 @@ index 6475060649e9..e999a9b9fe6c 100644
  int t1_link_start(struct cphy *phy, struct cmac *mac, struct link_config *lc);
  const struct board_info *t1_get_board_info(unsigned int board_id);
 diff --git a/drivers/net/ethernet/chelsio/cxgb/cxgb2.c b/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
-index c6db85fe1629..737c24136e2f 100644
+index c6db85fe16291..737c24136e2fe 100644
 --- a/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
 +++ b/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
 @@ -211,9 +211,10 @@ static int cxgb_up(struct adapter *adapter)
@@ -129,7 +129,7 @@ index c6db85fe1629..737c24136e2f 100644
  					  mac_stats_task);
  
 diff --git a/drivers/net/ethernet/chelsio/cxgb/sge.c b/drivers/net/ethernet/chelsio/cxgb/sge.c
-index 2d9c2b5a690a..5aef9ae1ecfe 100644
+index 2d9c2b5a690a3..5aef9ae1ecfed 100644
 --- a/drivers/net/ethernet/chelsio/cxgb/sge.c
 +++ b/drivers/net/ethernet/chelsio/cxgb/sge.c
 @@ -1619,11 +1619,38 @@ int t1_poll(struct napi_struct *napi, int budget)
@@ -186,7 +186,7 @@ index 2d9c2b5a690a..5aef9ae1ecfe 100644
  
  /*
 diff --git a/drivers/net/ethernet/chelsio/cxgb/sge.h b/drivers/net/ethernet/chelsio/cxgb/sge.h
-index a1ba591b3431..76516d2a8aa9 100644
+index a1ba591b34312..76516d2a8aa9e 100644
 --- a/drivers/net/ethernet/chelsio/cxgb/sge.h
 +++ b/drivers/net/ethernet/chelsio/cxgb/sge.h
 @@ -74,6 +74,7 @@ struct sge *t1_sge_create(struct adapter *, struct sge_params *);
@@ -198,7 +198,7 @@ index a1ba591b3431..76516d2a8aa9 100644
  int t1_poll(struct napi_struct *, int);
  
 diff --git a/drivers/net/ethernet/chelsio/cxgb/subr.c b/drivers/net/ethernet/chelsio/cxgb/subr.c
-index ea0f8741d7cf..d90ad07ff1a4 100644
+index ea0f8741d7cfd..d90ad07ff1a40 100644
 --- a/drivers/net/ethernet/chelsio/cxgb/subr.c
 +++ b/drivers/net/ethernet/chelsio/cxgb/subr.c
 @@ -210,7 +210,7 @@ static int fpga_phy_intr_handler(adapter_t *adapter)

@@ -460,7 +460,6 @@
 #define MGBE_MTL_RXQ_DMA_MAP0		0x1030
 #define MGBE_MTL_RXQ_DMA_MAP1		0x1034
 #define MGBE_MTL_RXQ_DMA_MAP2		0x1038
-#define MGBE_MTL_CHX_TX_OP_MODE(x)	((0x0080U * (x)) + 0x1100U)
 #define MGBE_MTL_TCQ_ETS_CR(x)		((0x0080U * (x)) + 0x1110U)
 #define MGBE_MTL_TCQ_QW(x)		((0x0080U * (x)) + 0x1118U)
 #define MGBE_MTL_CHX_RX_OP_MODE(x)	((0x0080U * (x)) + 0x1140U)
@@ -509,7 +508,6 @@
 #define MGBE_MAC_RQC1R_MCBCQEN			OSI_BIT(15)
 #define MGBE_MAC_RQC1R_MCBCQ			(OSI_BIT(11) | OSI_BIT(10) | \
 						 OSI_BIT(9) | OSI_BIT(8))
-#define MGBE_MAC_RQC1R_MCBCQ_SHIFT		8U
 #define MGBE_IMR_RGSMIIIE			OSI_BIT(0)
 #define MGBE_IMR_TSIE				OSI_BIT(12)
 #define MGBE_ISR_TSIS				OSI_BIT(12)
@@ -738,8 +736,8 @@
 /** @} */
 #endif /* !OSI_STRIPPED_LIB */
 
-/* TXQ Size 128KB is divided equally across 10 MTL Queues*/
-#define TX_FIFO_SZ	(((((128U * 1024U)/OSI_MGBE_MAX_NUM_QUEUES)) / 256U) - 1U)
+/* Maximum RXQ number is 9. Values here is 9U << 8U, 8 here is bit position in register */
+#define MGBE_MAX_RXQ_NUM	0x900U
 
 /**
  * @addtogroup MGBE-MAC-HWFR MGBE MAC HW feature registers

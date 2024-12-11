@@ -1,7 +1,7 @@
-From 016970a723e486bb2334de90ba71b3521c503e27 Mon Sep 17 00:00:00 2001
+From db513b7c00691b11894cc85690306604c7545598 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 24 Nov 2021 17:12:19 +0100
-Subject: [PATCH 307/322] irq_work: Allow irq_work_sync() to sleep if
+Subject: [PATCH 307/323] irq_work: Allow irq_work_sync() to sleep if
  irq_work() no IRQ support.
 X-NVConfidentiality: public
 
@@ -27,7 +27,7 @@ Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
  2 files changed, 19 insertions(+), 1 deletion(-)
 
 diff --git a/include/linux/irq_work.h b/include/linux/irq_work.h
-index f941f2d7d71c..3c6d3a96bca0 100644
+index f941f2d7d71ce..3c6d3a96bca0f 100644
 --- a/include/linux/irq_work.h
 +++ b/include/linux/irq_work.h
 @@ -3,6 +3,7 @@
@@ -68,7 +68,7 @@ index f941f2d7d71c..3c6d3a96bca0 100644
  bool irq_work_queue(struct irq_work *work);
  bool irq_work_queue_on(struct irq_work *work, int cpu);
 diff --git a/kernel/irq_work.c b/kernel/irq_work.c
-index 8183d30e1bb1..8969aff790e2 100644
+index 8183d30e1bb1c..8969aff790e21 100644
 --- a/kernel/irq_work.c
 +++ b/kernel/irq_work.c
 @@ -165,6 +165,9 @@ void irq_work_single(void *arg)

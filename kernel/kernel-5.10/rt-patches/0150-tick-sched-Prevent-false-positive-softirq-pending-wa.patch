@@ -1,7 +1,7 @@
-From bfe3008c50d10ebc02ca65734973cd5586cec865 Mon Sep 17 00:00:00 2001
+From af1ea0e01935cb6a9c1ce8ab8b0106d7981da63e Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 9 Mar 2021 09:55:57 +0100
-Subject: [PATCH 150/322] tick/sched: Prevent false positive softirq pending
+Subject: [PATCH 150/323] tick/sched: Prevent false positive softirq pending
  warnings on RT
 X-NVConfidentiality: public
 
@@ -26,7 +26,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  3 files changed, 22 insertions(+), 1 deletion(-)
 
 diff --git a/include/linux/bottom_half.h b/include/linux/bottom_half.h
-index e4dd613a070e..eed86eb0a1de 100644
+index e4dd613a070e3..eed86eb0a1dea 100644
 --- a/include/linux/bottom_half.h
 +++ b/include/linux/bottom_half.h
 @@ -32,4 +32,10 @@ static inline void local_bh_enable(void)
@@ -41,7 +41,7 @@ index e4dd613a070e..eed86eb0a1de 100644
 +
  #endif /* _LINUX_BH_H */
 diff --git a/kernel/softirq.c b/kernel/softirq.c
-index ed13f6097de8..c9adc5c46248 100644
+index ed13f6097de89..c9adc5c462485 100644
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
 @@ -139,6 +139,21 @@ static DEFINE_PER_CPU(struct softirq_ctrl, softirq_ctrl) = {
@@ -67,10 +67,10 @@ index ed13f6097de8..c9adc5c46248 100644
  {
  	unsigned long flags;
 diff --git a/kernel/time/tick-sched.c b/kernel/time/tick-sched.c
-index d07de3ff42ac..cb1c1a985878 100644
+index d1693c26958fc..0dc1460ced748 100644
 --- a/kernel/time/tick-sched.c
 +++ b/kernel/time/tick-sched.c
-@@ -963,7 +963,7 @@ static bool can_stop_idle_tick(int cpu, struct tick_sched *ts)
+@@ -982,7 +982,7 @@ static bool can_stop_idle_tick(int cpu, struct tick_sched *ts)
  	if (unlikely(local_softirq_pending())) {
  		static int ratelimit;
  

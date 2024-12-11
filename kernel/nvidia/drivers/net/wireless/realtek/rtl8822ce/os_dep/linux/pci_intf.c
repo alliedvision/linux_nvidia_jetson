@@ -91,7 +91,11 @@ struct pci_device_id rtw_pci_id_tbl[] = {
 	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0xC822), .driver_data = RTL8822C},
 #endif
 #ifdef CONFIG_RTL8814B
+  #ifdef CONFIG_RTL8814C
+	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0xC814), .driver_data = RTL8814B},
+  #else
 	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0xB814), .driver_data = RTL8814B},
+  #endif
 #endif
 	{},
 };
@@ -578,16 +582,10 @@ static s32 rtw_pci_parse_configuration(struct pci_dev *pdev, struct dvobj_priv *
 	return ret;
 }
 
-/*
- * 2009/10/28 MH Enable rtl8192ce DMA64 function. We need to enable 0x719 BIT5
- *   */
 #ifdef CONFIG_64BIT_DMA
-u8 PlatformEnableDMA64(PADAPTER Adapter)
+static void rtw_pci_enable_dma64(struct pci_dev *pdev)
 {
-	struct dvobj_priv	*pdvobjpriv = adapter_to_dvobj(Adapter);
-	struct pci_dev	*pdev = pdvobjpriv->ppcidev;
-	u8	bResult = _TRUE;
-	u8	value;
+	u8 value;
 
 	pci_read_config_byte(pdev, 0x719, &value);
 
@@ -595,8 +593,6 @@ u8 PlatformEnableDMA64(PADAPTER Adapter)
 	value |= (BIT5);
 
 	pci_write_config_byte(pdev, 0x719, value);
-
-	return bResult;
 }
 #endif
 
@@ -766,24 +762,27 @@ static struct dvobj_priv	*pci_dvobj_init(struct pci_dev *pdev, const struct pci_
 	}
 
 #ifdef CONFIG_64BIT_DMA
-	if (!pci_set_dma_mask(pdev, DMA_BIT_MASK(64))) {
-		RTW_INFO("RTL819xCE: Using 64bit DMA\n");
-		err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
+	if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(64))) {
+		err = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
 		if (err != 0) {
 			RTW_ERR("Unable to obtain 64bit DMA for consistent allocations\n");
 			goto disable_picdev;
 		}
+		RTW_INFO("PCIE: Using 64bit DMA\n");
 		dvobj->bdma64 = _TRUE;
+		rtw_pci_enable_dma64(pdev);
 	} else
 #endif
 	{
-		if (!pci_set_dma_mask(pdev, DMA_BIT_MASK(32))) {
-			err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
+		if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(32))) {
+			err = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
 			if (err != 0) {
 				RTW_ERR("Unable to obtain 32bit DMA for consistent allocations\n");
 				goto disable_picdev;
 			}
 		}
+		RTW_INFO("PCIE: Using 32bit DMA\n");
+		dvobj->bdma64 = _FALSE;
 	}
 
 	pci_set_master(pdev);
@@ -794,7 +793,7 @@ static struct dvobj_priv	*pci_dvobj_init(struct pci_dev *pdev, const struct pci_
 		goto disable_picdev;
 	}
 
-#ifdef RTK_129X_PLATFORM
+#ifdef CONFIG_PLATFORM_RTK129X
 	if (pdev->bus->number == 0x00) {
 		pmem_start = PCIE_SLOT1_MEM_START;
 		pmem_len   = PCIE_SLOT1_MEM_LEN;
@@ -828,7 +827,7 @@ static struct dvobj_priv	*pci_dvobj_init(struct pci_dev *pdev, const struct pci_
 
 #ifdef RTK_DMP_PLATFORM
 	dvobj->pci_mem_start = (unsigned long)ioremap_nocache(pmem_start, pmem_len);
-#elif defined(RTK_129X_PLATFORM)
+#elif defined(CONFIG_PLATFORM_RTK129X)
 	if (pdev->bus->number == 0x00)
 		dvobj->ctrl_start =
 			(unsigned long)ioremap(PCIE_SLOT1_CTRL_START, 0x200);
@@ -894,7 +893,7 @@ iounmap:
 		dvobj->pci_mem_start = 0;
 	}
 
-#ifdef RTK_129X_PLATFORM
+#ifdef CONFIG_PLATFORM_RTK129X
 	if (status != _SUCCESS && dvobj->ctrl_start != 0) {
 		pci_iounmap(pdev, (void *)dvobj->ctrl_start);
 		dvobj->ctrl_start = 0;
@@ -939,7 +938,7 @@ static void pci_dvobj_deinit(struct pci_dev *pdev)
 			dvobj->pci_mem_start = 0;
 		}
 
-#ifdef RTK_129X_PLATFORM
+#ifdef CONFIG_PLATFORM_RTK129X
 		if (dvobj->ctrl_start != 0) {
 			pci_iounmap(pdev, (void *)dvobj->ctrl_start);
 			dvobj->ctrl_start = 0;
@@ -1421,6 +1420,11 @@ static int rtw_drv_init(struct pci_dev *pdev, const struct pci_device_id *pdid)
 	int status = _FAIL;
 	_adapter *padapter = NULL;
 	struct dvobj_priv *dvobj;
+#ifdef CONFIG_SECURITY_MEM
+	unsigned long secure_memaddr = SECURITY_MEM_ADDR;
+	unsigned long secure_size = SECURITY_MEM_SIZE;
+	int dma_ret;
+#endif
 
 	/* RTW_INFO("+rtw_drv_init\n"); */
 
@@ -1431,6 +1435,56 @@ static int rtw_drv_init(struct pci_dev *pdev, const struct pci_device_id *pdid)
 	dvobj = pci_dvobj_init(pdev, pdid);
 	if (dvobj == NULL)
 		goto exit;
+
+#ifdef CONFIG_SECURITY_MEM
+	/*
+	dma_declare_coherent_memory
+	This API is used to declare a region of memory to be handed out by dma_alloc_coherent()
+	when it's asked for coherent memory for this device
+	*/
+	if (0 == secure_memaddr) {
+		RTW_WARN("%s: secure_memaddr is not assigned.\n", __func__);
+		WARN_ON(1);
+		goto NO_DECLARE;
+	}
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0))
+	dma_ret = dma_declare_coherent_memory(&pdev->dev, secure_memaddr,
+					      secure_memaddr, secure_size);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0))
+	dma_ret = dma_declare_coherent_memory(&pdev->dev, secure_memaddr,
+					      secure_memaddr, secure_size,
+					      DMA_MEMORY_EXCLUSIVE);
+#else
+	dma_ret = dma_declare_coherent_memory(&pdev->dev, secure_memaddr,
+					      secure_memaddr, secure_size,
+					      DMA_MEMORY_MAP | DMA_MEMORY_EXCLUSIVE);
+#endif
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0))
+	if (dma_ret) {
+		RTW_INFO("Failed to declare coherent memory for wifi device: ret = 0x%x, secure_memaddr = 0x%lx, size = %ld\n",
+				dma_ret, secure_memaddr, secure_size);
+		goto free_dvobj;
+	} else {
+		status = _SUCCESS;
+		RTW_INFO("Declare coherent memory ok for wifi device, ret = 0x%x, secure_memaddr = 0x%lx, secure_size = %ld\n",
+				dma_ret, secure_memaddr, secure_size);
+	}
+#else
+	if (!dma_ret) {
+		RTW_INFO("Failed to declare coherent memory for wifi device: ret = 0x%x, secure_memaddr = 0x%lx, secure_size = %ld\n",
+				dma_ret, secure_memaddr, secure_size);
+		goto free_dvobj;
+	} else {
+		status = _SUCCESS;
+		RTW_INFO("Declare coherent memory ok for wifi device, ret = 0x%x, secure_memaddr = 0x%lx\n, secure_size = %ld\n",
+				dma_ret, secure_memaddr, secure_size);
+	}
+#endif
+
+NO_DECLARE:
+#endif
 
 	/* Initialize primary adapter */
 	padapter = rtw_pci_primary_adapter_init(dvobj, pdev);
@@ -1510,9 +1564,19 @@ exit:
 /* rmmod module & unplug(SurpriseRemoved) will call r871xu_dev_remove() => how to recognize both */
 static void rtw_dev_remove(struct pci_dev *pdev)
 {
-	struct dvobj_priv *pdvobjpriv = pci_get_drvdata(pdev);
-	_adapter *padapter = dvobj_get_primary_adapter(pdvobjpriv);
-	struct net_device *pnetdev = padapter->pnetdev;
+	struct dvobj_priv *pdvobjpriv;
+	_adapter *padapter;
+	struct net_device *pnetdev;
+
+	pdvobjpriv = pci_get_drvdata(pdev);
+
+	if (pdvobjpriv == NULL) {
+		RTW_INFO("%s: dev has beend revmoed\n", __func__);
+		return;
+	}
+
+	padapter = dvobj_get_primary_adapter(pdvobjpriv);
+	pnetdev = padapter->pnetdev;
 
 	if (pdvobjpriv->processing_dev_remove == _TRUE) {
 		RTW_WARN("%s-line%d: Warning! device has been removed!\n", __func__, __LINE__);
@@ -1622,6 +1686,10 @@ static int __init rtw_drv_entry(void)
 	pci_drvpriv.drv_registered = _TRUE;
 	rtw_suspend_lock_init();
 	rtw_drv_proc_init();
+	rtw_nlrtw_init();
+#ifdef CONFIG_PLATFORM_CMAP_INTFS
+	cmap_intfs_init();
+#endif
 	rtw_ndev_notifier_register();
 	rtw_inetaddr_notifier_register();
 
@@ -1631,6 +1699,10 @@ static int __init rtw_drv_entry(void)
 		pci_drvpriv.drv_registered = _FALSE;
 		rtw_suspend_lock_uninit();
 		rtw_drv_proc_deinit();
+		rtw_nlrtw_deinit();
+#ifdef CONFIG_PLATFORM_CMAP_INTFS
+		cmap_intfs_deinit();
+#endif
 		rtw_ndev_notifier_unregister();
 		rtw_inetaddr_notifier_unregister();
 		goto exit;
@@ -1651,6 +1723,10 @@ static void __exit rtw_drv_halt(void)
 
 	rtw_suspend_lock_uninit();
 	rtw_drv_proc_deinit();
+	rtw_nlrtw_deinit();
+#ifdef CONFIG_PLATFORM_CMAP_INTFS
+	cmap_intfs_deinit();
+#endif
 	rtw_ndev_notifier_unregister();
 	rtw_inetaddr_notifier_unregister();
 

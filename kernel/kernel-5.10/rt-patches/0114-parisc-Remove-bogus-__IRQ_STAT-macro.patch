@@ -1,7 +1,7 @@
-From a1303111c4513b8081a92809f65b55ab3358a205 Mon Sep 17 00:00:00 2001
+From ebf69a398ef6e97d6a102bb26547c7c936ba435b Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Fri, 13 Nov 2020 15:02:08 +0100
-Subject: [PATCH 114/322] parisc: Remove bogus __IRQ_STAT macro
+Subject: [PATCH 114/323] parisc: Remove bogus __IRQ_STAT macro
 X-NVConfidentiality: public
 
 This is a leftover from a historical array based implementation and unused.
@@ -15,7 +15,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 deletion(-)
 
 diff --git a/arch/parisc/include/asm/hardirq.h b/arch/parisc/include/asm/hardirq.h
-index 7f7039516e53..fad29aa6f45f 100644
+index 7f7039516e53f..fad29aa6f45fa 100644
 --- a/arch/parisc/include/asm/hardirq.h
 +++ b/arch/parisc/include/asm/hardirq.h
 @@ -32,7 +32,6 @@ typedef struct {

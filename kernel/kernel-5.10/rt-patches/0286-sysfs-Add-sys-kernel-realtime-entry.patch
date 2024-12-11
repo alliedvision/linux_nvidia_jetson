@@ -1,7 +1,7 @@
-From a663ea06ba651a6da3dbb7c87db986cc74ca37c9 Mon Sep 17 00:00:00 2001
+From 0d4fa316afd1a30dc43ad56f7bb677c248f3f1c8 Mon Sep 17 00:00:00 2001
 From: Clark Williams <williams@redhat.com>
 Date: Sat, 30 Jul 2011 21:55:53 -0500
-Subject: [PATCH 286/322] sysfs: Add /sys/kernel/realtime entry
+Subject: [PATCH 286/323] sysfs: Add /sys/kernel/realtime entry
 X-NVConfidentiality: public
 
 Add a /sys/kernel entry to indicate that the kernel is a
@@ -20,7 +20,7 @@ Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
  1 file changed, 12 insertions(+)
 
 diff --git a/kernel/ksysfs.c b/kernel/ksysfs.c
-index e20c19e3ba49..777168d58f02 100644
+index e20c19e3ba49c..777168d58f02e 100644
 --- a/kernel/ksysfs.c
 +++ b/kernel/ksysfs.c
 @@ -143,6 +143,15 @@ KERNEL_ATTR_RO(vmcoreinfo);

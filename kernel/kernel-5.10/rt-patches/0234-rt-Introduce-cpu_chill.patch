@@ -1,7 +1,7 @@
-From c0c18577ae9d7eaef9041fd072c4512c7df57144 Mon Sep 17 00:00:00 2001
+From 11a2cc24a7087651132667b16f22d8d7299a7c3c Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 7 Mar 2012 20:51:03 +0100
-Subject: [PATCH 234/322] rt: Introduce cpu_chill()
+Subject: [PATCH 234/323] rt: Introduce cpu_chill()
 X-NVConfidentiality: public
 
 Retry loops on RT might loop forever when the modifying side was
@@ -62,7 +62,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 36 insertions(+)
 
 diff --git a/include/linux/delay.h b/include/linux/delay.h
-index 1d0e2ce6b6d9..02b37178b54f 100644
+index 1d0e2ce6b6d9f..02b37178b54f4 100644
 --- a/include/linux/delay.h
 +++ b/include/linux/delay.h
 @@ -76,4 +76,10 @@ static inline void fsleep(unsigned long usecs)
@@ -77,10 +77,10 @@ index 1d0e2ce6b6d9..02b37178b54f 100644
 +
  #endif /* defined(_LINUX_DELAY_H) */
 diff --git a/kernel/time/hrtimer.c b/kernel/time/hrtimer.c
-index 70deb2f01e97..139a80dd830c 100644
+index 2b2a6e29219dc..b8f4075d42247 100644
 --- a/kernel/time/hrtimer.c
 +++ b/kernel/time/hrtimer.c
-@@ -2054,6 +2054,36 @@ SYSCALL_DEFINE2(nanosleep_time32, struct old_timespec32 __user *, rqtp,
+@@ -2055,6 +2055,36 @@ SYSCALL_DEFINE2(nanosleep_time32, struct old_timespec32 __user *, rqtp,
  }
  #endif
  

@@ -1,7 +1,7 @@
-From 3577b5eb98b40574862da9c67ae4e4331dff9302 Mon Sep 17 00:00:00 2001
+From 913c4cac5906a65ed8a97c61a1f3b46590941bbb Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 14 Jul 2015 14:26:34 +0200
-Subject: [PATCH 230/322] block/mq: do not invoke preempt_disable()
+Subject: [PATCH 230/323] block/mq: do not invoke preempt_disable()
 X-NVConfidentiality: public
 
 preempt_disable() and get_cpu() don't play well together with the sleeping
@@ -14,10 +14,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/block/blk-mq.c b/block/blk-mq.c
-index 10e18cbe5f5e..5591416d009b 100644
+index d59127abeef64..80e1e8cb95a48 100644
 --- a/block/blk-mq.c
 +++ b/block/blk-mq.c
-@@ -1575,14 +1575,14 @@ static void __blk_mq_delay_run_hw_queue(struct blk_mq_hw_ctx *hctx, bool async,
+@@ -1591,14 +1591,14 @@ static void __blk_mq_delay_run_hw_queue(struct blk_mq_hw_ctx *hctx, bool async,
  		return;
  
  	if (!async && !(hctx->flags & BLK_MQ_F_BLOCKING)) {

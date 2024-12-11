@@ -1,7 +1,7 @@
-From e0b6adcad995245b90f38f7b4890f11bc60ba279 Mon Sep 17 00:00:00 2001
+From faef46ddbd1e8ee5615c296a11650f604e9a3694 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 26 Oct 2021 13:40:53 +0200
-Subject: [PATCH 306/322] drm/i915/gt: Queue and wait for the irq_work item.
+Subject: [PATCH 306/323] drm/i915/gt: Queue and wait for the irq_work item.
 X-NVConfidentiality: public
 
 Disabling interrupts and invoking the irq_work function directly breaks
@@ -28,7 +28,7 @@ Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
  1 file changed, 2 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/gpu/drm/i915/gt/intel_breadcrumbs.c b/drivers/gpu/drm/i915/gt/intel_breadcrumbs.c
-index 0040b4765a54..3f4f854786f2 100644
+index 0040b4765a54d..3f4f854786f2b 100644
 --- a/drivers/gpu/drm/i915/gt/intel_breadcrumbs.c
 +++ b/drivers/gpu/drm/i915/gt/intel_breadcrumbs.c
 @@ -342,10 +342,9 @@ void intel_breadcrumbs_park(struct intel_breadcrumbs *b)

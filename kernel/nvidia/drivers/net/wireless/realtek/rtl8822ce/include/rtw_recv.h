@@ -77,6 +77,7 @@ extern u8 rtw_rfc1042_header[];
 
 enum addba_rsp_ack_state {
 	RTW_RECV_ACK_OR_TIMEOUT,
+	RTW_RECV_REORDER_WOW
 };
 
 /* for Rx reordering buffer control */
@@ -171,8 +172,6 @@ struct rx_pkt_attrib	{
 	u8	icv_len;
 	u8	crc_err;
 	u8	icv_err;
-
-	u16	eth_type;
 
 	u8	dst[ETH_ALEN];
 	u8	src[ETH_ALEN];
@@ -302,7 +301,86 @@ struct rtw_rx_ring {
 };
 #endif
 
+struct rtw_ip_dbg_cnt_statistic {
+	u8 enabled;
+	u8 ip[4];
+	u16 dst_port;
+	u32 ip_cnt;
+	u32 tcp_cnt;
+	u32 udp_cnt;
+	u32 frag_cnt;
+	u8 iperf_ver;	/* bit7 for debug enable */
+	u32 iperf_seq;
+	u32 iperf_err_cnt;
+	u32 iperf_out_of_order_cnt;
 
+	u32 ip_seq_chk;
+	u16 frag_offset_chk, max_frag_offset_chk;
+	u8 defrag_done;
+
+#define need_to_chk_iudp_cnt(p, s) \
+	((GET_IPV4_PROTOCOL((p)) == 0x11) && \
+	((((struct rtw_ip_dbg_cnt_statistic *)(s))->iperf_ver & 0x7f) > 0))
+#define ip_cnt_inc(s)	\
+	((struct rtw_ip_dbg_cnt_statistic *)(s))->ip_cnt++
+#define frag_cnt_inc(s)	\
+	((struct rtw_ip_dbg_cnt_statistic *)(s))->frag_cnt++
+#define tcp_udp_cnt_inc(p, s)	\
+	do {	\
+		if (GET_IPV4_PROTOCOL(p) == 0x06)	\
+			((struct rtw_ip_dbg_cnt_statistic *)(s))->tcp_cnt++;	\
+		else if (GET_IPV4_PROTOCOL(p) == 0x11)	\
+			((struct rtw_ip_dbg_cnt_statistic *)(s))->udp_cnt++;	\
+	} while(0)
+#define iudp_err_cnt_inc(s, str)	\
+	do {	\
+		struct rtw_ip_dbg_cnt_statistic *ps = \
+			(struct rtw_ip_dbg_cnt_statistic *)(s);	\
+			ps->iperf_err_cnt++;	\
+		if (((ps->iperf_ver & 0xf0) >> 7) > 0)	\
+			RTW_INFO("%s : %s-err iperf_err_cnt(%u), iperf_seq(%u)\n"\
+			,__func__, (const u8 *)(str), ps->iperf_err_cnt, ps->iperf_seq);	\
+	} while(0)
+#define iudp_err_cnt_update(s, c)	\
+	do {	\
+		struct rtw_ip_dbg_cnt_statistic *ps = \
+			(struct rtw_ip_dbg_cnt_statistic *)(s);	\
+		ps->iperf_err_cnt += ((c - 1) - ps->iperf_seq);	\
+		if (((ps->iperf_ver & 0xf0) >> 7) > 0)	\
+			RTW_INFO("%s : iperf_err_cnt(%u), cur_iperf_seq(%u), last_iperf_seq(%u)\n"\
+			,__func__, ps->iperf_err_cnt, (c), ps->iperf_seq);	\
+	} while(0)
+#define iperf_out_of_order_cnt_inc(s, c)	\
+	do {	\
+		struct rtw_ip_dbg_cnt_statistic *ps = \
+			(struct rtw_ip_dbg_cnt_statistic *)(s);	\
+		ps->iperf_out_of_order_cnt++;	\
+		if (((ps->iperf_ver & 0xf0) >> 7) > 0)	\
+			RTW_INFO("%s : iperf_out_of_order_cnt(%u), cur_iperf_seq(%u), last_iperf_seq(%u)\n"\
+			,__func__, ps->iperf_out_of_order_cnt, (c), ps->iperf_seq);	\
+	} while(0)
+
+#define iudp_ip_seq_set(s, v)	\
+	(((struct rtw_ip_dbg_cnt_statistic *)(s))->iperf_seq = (v))
+#define iudp_ip_seq_get(s)	\
+	((struct rtw_ip_dbg_cnt_statistic *)(s))->iperf_seq
+#define iudp_defrag_done_set(s, v)	\
+	(((struct rtw_ip_dbg_cnt_statistic *)(s))->defrag_done = (v))
+#define iudp_defrag_done_get(s)	\
+	((struct rtw_ip_dbg_cnt_statistic *)(s))->defrag_done
+#define iudp_ip_seq_chk_set(s, v)	\
+	(((struct rtw_ip_dbg_cnt_statistic *)(s))->ip_seq_chk = (v))
+#define iudp_ip_seq_chk_get(s)	\
+	((struct rtw_ip_dbg_cnt_statistic *)(s))->ip_seq_chk
+#define iudp_frag_offset_chk_set(s, v)	\
+	(((struct rtw_ip_dbg_cnt_statistic *)(s))->frag_offset_chk = (v))
+#define iudp_frag_offset_chk_get(s)	\
+	((struct rtw_ip_dbg_cnt_statistic *)(s))->frag_offset_chk
+#define iudp_max_frag_offset_chk_set(s, v)	\
+	(((struct rtw_ip_dbg_cnt_statistic *)(s))->max_frag_offset_chk = (v))
+#define iudp_max_frag_offset_chk_get(s)	\
+	((struct rtw_ip_dbg_cnt_statistic *)(s))->max_frag_offset_chk
+};	/* end of struct rtw_ip_dbg_cnt_statistic */
 
 /*
 accesser of recv_priv: rtw_recv_entry(dispatch / passive level); recv_thread(passive) ; returnpkt(dispatch)
@@ -314,6 +392,8 @@ using enter_critical section to protect
 #ifndef DBG_RX_BH_TRACKING
 #define DBG_RX_BH_TRACKING 0
 #endif
+
+#define ROW_LEN	64
 
 struct recv_priv {
 	_lock	lock;
@@ -366,11 +446,16 @@ struct recv_priv {
 	uint  rx_smallpacket_crcerr;
 	uint  rx_middlepacket_crcerr;
 
+	struct rtw_ip_dbg_cnt_statistic ip_statistic;
+
 #ifdef CONFIG_USB_HCI
 	/* u8 *pallocated_urb_buf; */
 	_sema allrxreturnevt;
 	uint	ff_hwaddr;
 	ATOMIC_T	rx_pending_cnt;
+#ifdef CONFIG_USB_PROTECT_RX_CLONED_SKB
+	struct sk_buff_head rx_cloned_skb_queue;
+#endif
 
 #ifdef CONFIG_USB_INTERRUPT_IN_PIPE
 #ifdef PLATFORM_LINUX
@@ -406,6 +491,15 @@ struct recv_priv {
 	_queue	recv_buf_pending_queue;
 #endif
 
+#if defined(CONFIG_SDIO_HCI)
+#ifdef CONFIG_SDIO_RECVBUF_PWAIT
+	struct rtw_pwait_ctx recvbuf_pwait;
+#endif
+#ifdef CONFIG_SDIO_RECVBUF_AGGREGATION
+	bool recvbuf_agg;
+#endif
+#endif /* CONFIG_SDIO_HCI */
+
 #ifdef CONFIG_PCI_HCI
 	/* Rx */
 	struct rtw_rx_ring	rx_ring[PCI_MAX_RX_QUEUE];
@@ -418,6 +512,11 @@ struct recv_priv {
 	u8 signal_strength_dbg;	/* for debug */
 
 	u8 signal_strength;
+
+	u8 signal_row_idx;
+	u8 signal_row[ROW_LEN];
+	u8 signal_avg[ROW_LEN];
+
 	u8 signal_qual;
 	s8 rssi;	/* translate_percentage_to_dbm(ptarget_wlan->network.PhyInfo.SignalStrength); */
 	struct rx_raw_rssi raw_rssi_info;
@@ -441,6 +540,15 @@ struct recv_priv {
 
 	BOOLEAN store_law_data_flag;
 };
+
+#ifdef CONFIG_SDIO_RECVBUF_AGGREGATION
+#define recv_buf_agg(recvpriv) recvpriv->recvbuf_agg
+#ifndef CONFIG_SDIO_RECVBUF_AGGREGATION_EN
+#define CONFIG_SDIO_RECVBUF_AGGREGATION_EN 1
+#endif
+#else
+#define recv_buf_agg(recvpriv) 0
+#endif
 
 #define RX_BH_STG_UNKNOWN		0
 #define RX_BH_STG_HDL_ENTER		1
@@ -490,10 +598,20 @@ struct sta_recv_priv {
 };
 
 
+#define RBUF_TYPE_PREALLOC	0
+#define RBUF_TYPE_TMP		1
+#define RBUF_TYPE_PWAIT_ADJ	2
+
 struct recv_buf {
 	_list list;
 
+#ifdef PLATFORM_WINDOWS
 	_lock recvbuf_lock;
+#endif
+
+#ifdef CONFIG_SDIO_RECVBUF_PWAIT_RUNTIME_ADJUST
+	u8 type;
+#endif
 
 	u32	ref_cnt;
 
@@ -524,6 +642,11 @@ struct recv_buf {
 #endif
 };
 
+#ifdef CONFIG_SDIO_RECVBUF_PWAIT_RUNTIME_ADJUST
+#define RBUF_IS_PREALLOC(rbuf) ((rbuf)->type == RBUF_TYPE_PREALLOC)
+#else
+#define RBUF_IS_PREALLOC(rbuf) 1
+#endif
 
 /*
 	head  ----->
@@ -590,6 +713,12 @@ union recv_frame {
 
 };
 
+enum rtw_rx_llc_hdl {
+	RTW_RX_LLC_KEEP		= 0,
+	RTW_RX_LLC_REMOVE	= 1,
+	RTW_RX_LLC_VLAN		= 2,
+};
+
 bool rtw_rframe_del_wfd_ie(union recv_frame *rframe, u8 ies_offset);
 
 typedef enum _RX_PACKET_TYPE {
@@ -615,6 +744,9 @@ u32 rtw_free_uc_swdec_pending_queue(_adapter *adapter);
 sint rtw_enqueue_recvbuf_to_head(struct recv_buf *precvbuf, _queue *queue);
 sint rtw_enqueue_recvbuf(struct recv_buf *precvbuf, _queue *queue);
 struct recv_buf *rtw_dequeue_recvbuf(_queue *queue);
+
+void process_pwrbit_data(_adapter *padapter, union recv_frame *precv_frame, struct sta_info *psta);
+void process_wmmps_data(_adapter *padapter, union recv_frame *precv_frame, struct sta_info *psta);
 
 #if defined(CONFIG_80211N_HT) && defined(CONFIG_RECV_REORDERING_CTRL)
 void rtw_reordering_ctrl_timeout_handler(void *pcontext);
@@ -759,6 +891,7 @@ __inline static u8 *recvframe_pull_tail(union recv_frame *precvframe, sint sz)
 
 }
 
+#if 0
 __inline static union recv_frame *rxmem_to_recvframe(u8 *rxmem)
 {
 	/* due to the design of 2048 bytes alignment of recv_frame, we can reference the union recv_frame */
@@ -798,6 +931,7 @@ __inline static u8 *pkt_to_recvdata(_pkt *pkt)
 	return	precv_frame->u.hdr.rx_data;
 
 }
+#endif
 
 
 __inline static sint get_recvframe_len(union recv_frame *precvframe)

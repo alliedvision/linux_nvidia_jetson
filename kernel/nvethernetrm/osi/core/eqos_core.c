@@ -354,8 +354,7 @@ calibration_failed:
  * @retval 0 on success
  * @retval -1 on failure.
  */
-static nve32_t eqos_configure_mtl_queue(struct osi_core_priv_data *const osi_core,
-					nveu32_t q_inx)
+static nve32_t eqos_configure_mtl_queue(struct osi_core_priv_data *const osi_core)
 {
 	const struct core_local *l_core = (struct core_local *)(void *)osi_core;
 	const nveu32_t rx_fifo_sz[2U][OSI_EQOS_MAX_NUM_QUEUES] = {
@@ -363,12 +362,6 @@ static nve32_t eqos_configure_mtl_queue(struct osi_core_priv_data *const osi_cor
 		  FIFO_SZ(1U), FIFO_SZ(1U), FIFO_SZ(1U), FIFO_SZ(1U) },
 		{ FIFO_SZ(36U), FIFO_SZ(2U), FIFO_SZ(2U), FIFO_SZ(2U),
 		  FIFO_SZ(2U), FIFO_SZ(2U), FIFO_SZ(2U), FIFO_SZ(16U) },
-	};
-	const nveu32_t tx_fifo_sz[2U][OSI_EQOS_MAX_NUM_QUEUES] = {
-		{ FIFO_SZ(9U), FIFO_SZ(9U), FIFO_SZ(9U), FIFO_SZ(9U),
-		  FIFO_SZ(1U), FIFO_SZ(1U), FIFO_SZ(1U), FIFO_SZ(1U) },
-		{ FIFO_SZ(8U), FIFO_SZ(8U), FIFO_SZ(8U), FIFO_SZ(8U),
-		  FIFO_SZ(8U), FIFO_SZ(8U), FIFO_SZ(8U), FIFO_SZ(8U) },
 	};
 	const nveu32_t rfd_rfa[OSI_EQOS_MAX_NUM_QUEUES] = {
 		FULL_MINUS_16_K,
@@ -381,60 +374,67 @@ static nve32_t eqos_configure_mtl_queue(struct osi_core_priv_data *const osi_cor
 		FULL_MINUS_1_5K,
 	};
 	nveu32_t l_macv = (l_core->l_mac_ver & 0x1U);
-	nveu32_t que_idx = (q_inx & 0x7U);
+	nveu32_t value = 0, i, que_idx;
 	nveu32_t rx_fifo_sz_t = 0U;
-	nveu32_t tx_fifo_sz_t = 0U;
-	nveu32_t value = 0;
 	nve32_t ret = 0;
 
-	tx_fifo_sz_t = tx_fifo_sz[l_macv][que_idx];
+	for (i = 0U; i < osi_core->num_mtl_queues; i++) {
+		que_idx = osi_core->mtl_queues[i] & 0xFU;
 
-	ret = hw_flush_mtl_tx_queue(osi_core, que_idx);
-	if (ret < 0) {
-		goto fail;
+		ret = hw_flush_mtl_tx_queue(osi_core, que_idx);
+		if (ret < 0)
+			goto fail;
+
+		value = (l_core->tx_fifosz_perq  << EQOS_MTL_TXQ_SIZE_SHIFT);
+		/* Enable Store and Forward mode */
+		value |= EQOS_MTL_TSF;
+		/* Enable TxQ */
+		value |= EQOS_MTL_TXQEN;
+		osi_writela(osi_core, value, (nveu8_t *)osi_core->base +
+			    EQOS_MTL_CHX_TX_OP_MODE(que_idx));
+
+		/* Transmit Queue weight */
+		value = osi_readla(osi_core, (nveu8_t *)osi_core->base +
+				   EQOS_MTL_TXQ_QW(que_idx));
+		value |= EQOS_MTL_TXQ_QW_ISCQW;
+		osi_writela(osi_core, value, (nveu8_t *)osi_core->base + EQOS_MTL_TXQ_QW(que_idx));
+
+		/* Enable by default to configure forward error packets.
+		 * Since this is a local function this will always return success,
+		 * so no need to check for return value
+		 */
+		(void)hw_config_fw_err_pkts(osi_core, que_idx, OSI_ENABLE);
 	}
 
-	value = (tx_fifo_sz_t << EQOS_MTL_TXQ_SIZE_SHIFT);
-	/* Enable Store and Forward mode */
-	value |= EQOS_MTL_TSF;
-	/* Enable TxQ */
-	value |= EQOS_MTL_TXQEN;
-	osi_writela(osi_core, value, (nveu8_t *)osi_core->base + EQOS_MTL_CHX_TX_OP_MODE(que_idx));
+	for (i = 0U; i < OSI_EQOS_MAX_NUM_QUEUES; i++) {
+		/* read RX Q0 Operating Mode Register */
+		value = osi_readla(osi_core, (nveu8_t *)osi_core->base +
+				   EQOS_MTL_CHX_RX_OP_MODE(i));
 
-	/* read RX Q0 Operating Mode Register */
-	value = osi_readla(osi_core, (nveu8_t *)osi_core->base +
-			   EQOS_MTL_CHX_RX_OP_MODE(que_idx));
+		rx_fifo_sz_t = rx_fifo_sz[l_macv][i];
+		value |= (rx_fifo_sz_t << EQOS_MTL_RXQ_SIZE_SHIFT);
+		/* Enable Store and Forward mode */
+		value |= EQOS_MTL_RSF;
+		/* Update EHFL, RFA and RFD
+		 * EHFL: Enable HW Flow Control
+		 * RFA: Threshold for Activating Flow Control
+		 * RFD: Threshold for Deactivating Flow Control
+		 */
+		value &= ~EQOS_MTL_RXQ_OP_MODE_RFD_MASK;
+		value &= ~EQOS_MTL_RXQ_OP_MODE_RFA_MASK;
+		value |= EQOS_MTL_RXQ_OP_MODE_EHFC;
+		value |= (rfd_rfa[i] << EQOS_MTL_RXQ_OP_MODE_RFD_SHIFT) &
+			EQOS_MTL_RXQ_OP_MODE_RFD_MASK;
+		value |= (rfd_rfa[i] << EQOS_MTL_RXQ_OP_MODE_RFA_SHIFT) &
+			EQOS_MTL_RXQ_OP_MODE_RFA_MASK;
+		osi_writela(osi_core, value, (nveu8_t *)osi_core->base +
+			    EQOS_MTL_CHX_RX_OP_MODE(i));
 
-	rx_fifo_sz_t = rx_fifo_sz[l_macv][que_idx];
-	value |= (rx_fifo_sz_t << EQOS_MTL_RXQ_SIZE_SHIFT);
-	/* Enable Store and Forward mode */
-	value |= EQOS_MTL_RSF;
-	/* Update EHFL, RFA and RFD
-	 * EHFL: Enable HW Flow Control
-	 * RFA: Threshold for Activating Flow Control
-	 * RFD: Threshold for Deactivating Flow Control
-	 */
-	value &= ~EQOS_MTL_RXQ_OP_MODE_RFD_MASK;
-	value &= ~EQOS_MTL_RXQ_OP_MODE_RFA_MASK;
-	value |= EQOS_MTL_RXQ_OP_MODE_EHFC;
-	value |= (rfd_rfa[que_idx] << EQOS_MTL_RXQ_OP_MODE_RFD_SHIFT) &
-		  EQOS_MTL_RXQ_OP_MODE_RFD_MASK;
-	value |= (rfd_rfa[que_idx] << EQOS_MTL_RXQ_OP_MODE_RFA_SHIFT) &
-		  EQOS_MTL_RXQ_OP_MODE_RFA_MASK;
-	osi_writela(osi_core, value, (nveu8_t *)osi_core->base + EQOS_MTL_CHX_RX_OP_MODE(que_idx));
-
-	/* Transmit Queue weight */
-	value = osi_readla(osi_core, (nveu8_t *)osi_core->base +
-			   EQOS_MTL_TXQ_QW(que_idx));
-	value |= EQOS_MTL_TXQ_QW_ISCQW;
-	osi_writela(osi_core, value, (nveu8_t *)osi_core->base + EQOS_MTL_TXQ_QW(que_idx));
-
-	/* Enable Rx Queue Control */
-	value = osi_readla(osi_core, (nveu8_t *)osi_core->base +
-			  EQOS_MAC_RQC0R);
-	value |= ((osi_core->rxq_ctrl[que_idx] & EQOS_RXQ_EN_MASK) << (que_idx * 2U));
-	osi_writela(osi_core, value, (nveu8_t *)osi_core->base + EQOS_MAC_RQC0R);
-
+		/* Enable Rx Queue Control */
+		value = osi_readla(osi_core, (nveu8_t *)osi_core->base + EQOS_MAC_RQC0R);
+		value |= ((osi_core->rxq_ctrl[i] & EQOS_RXQ_EN_MASK) << (i * 2U));
+		osi_writela(osi_core, value, (nveu8_t *)osi_core->base + EQOS_MAC_RQC0R);
+	}
 fail:
 	return ret;
 }
@@ -1263,7 +1263,6 @@ static void eqos_dma_chan_to_vmirq_map(struct osi_core_priv_data *osi_core)
 static nve32_t eqos_core_init(struct osi_core_priv_data *const osi_core)
 {
 	nve32_t ret = 0;
-	nveu32_t qinx = 0;
 	nveu32_t value = 0;
 	nveu32_t value1 = 0;
 
@@ -1324,32 +1323,10 @@ static nve32_t eqos_core_init(struct osi_core_priv_data *const osi_core)
 		osi_writela(osi_core, value1, (nveu8_t *)osi_core->base + EQOS_MTL_RXQ_DMA_MAP1);
 	}
 
-	if (osi_unlikely(osi_core->num_mtl_queues > OSI_EQOS_MAX_NUM_QUEUES)) {
-		OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_INVALID,
-			     "Number of queues is incorrect\n", 0ULL);
-		ret = -1;
+	ret = eqos_configure_mtl_queue(osi_core);
+	if (ret < 0)
 		goto fail;
-	}
 
-	/* Configure MTL Queues */
-	for (qinx = 0; qinx < osi_core->num_mtl_queues; qinx++) {
-		if (osi_unlikely(osi_core->mtl_queues[qinx] >=
-				 OSI_EQOS_MAX_NUM_QUEUES)) {
-			OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_INVALID,
-				     "Incorrect queues number\n", 0ULL);
-			ret = -1;
-			goto fail;
-		}
-		ret = eqos_configure_mtl_queue(osi_core, osi_core->mtl_queues[qinx]);
-		if (ret < 0) {
-			goto fail;
-		}
-		/* Enable by default to configure forward error packets.
-		 * Since this is a local function this will always return sucess,
-		 * so no need to check for return value
-		 */
-		(void)hw_config_fw_err_pkts(osi_core, osi_core->mtl_queues[qinx], OSI_ENABLE);
-	}
 
 	/* configure EQOS MAC HW */
 	eqos_configure_mac(osi_core);
@@ -2567,7 +2544,6 @@ static nve32_t  eqos_config_ptp_rxq(struct osi_core_priv_data *const osi_core,
 {
 	nveu8_t *base = osi_core->base;
 	nveu32_t value = OSI_NONE;
-	nveu32_t i = 0U;
 
 	/* Validate the RX queue index argment */
 	if (rxq_idx >= OSI_EQOS_MAX_NUM_QUEUES) {
@@ -2587,21 +2563,6 @@ static nve32_t  eqos_config_ptp_rxq(struct osi_core_priv_data *const osi_core,
 		OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_INVALID,
 			"Invalid enable input\n",
 			enable);
-		return -1;
-	}
-
-	/* Validate PTP RX queue enable */
-	for (i = 0; i < osi_core->num_mtl_queues; i++) {
-		if (osi_core->mtl_queues[i] == rxq_idx) {
-			/* Given PTP RX queue is enabled */
-			break;
-		}
-	}
-
-	if (i == osi_core->num_mtl_queues) {
-		OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_INVALID,
-			"PTP RX queue not enabled\n",
-			rxq_idx);
 		return -1;
 	}
 

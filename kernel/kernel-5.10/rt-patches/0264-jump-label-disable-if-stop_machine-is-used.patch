@@ -1,7 +1,7 @@
-From 35c757aee75b302a6b7e251913518f49ddd25576 Mon Sep 17 00:00:00 2001
+From 34d62586d1acc9b1e8b286dbfdd2f8e07700fdbf Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Wed, 8 Jul 2015 17:14:48 +0200
-Subject: [PATCH 264/322] jump-label: disable if stop_machine() is used
+Subject: [PATCH 264/323] jump-label: disable if stop_machine() is used
 X-NVConfidentiality: public
 
 Some architectures are using stop_machine() while switching the opcode which
@@ -25,7 +25,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index ee2cbe8ad502..73c55cb2f296 100644
+index ee2cbe8ad502d..73c55cb2f2968 100644
 --- a/arch/arm/Kconfig
 +++ b/arch/arm/Kconfig
 @@ -67,7 +67,7 @@ config ARM

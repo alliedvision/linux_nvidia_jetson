@@ -225,6 +225,9 @@ struct hal_spec_t {
 	u8 sec_cam_ent_num;
 	u8 sec_cap;
 	u8 wow_cap;
+	u8 macid_cap;
+	u16 macid_txrpt;
+	u8 macid_txrpt_pgsz;
 
 	u8 rfpath_num_2g:4;	/* used for tx power index path */
 	u8 rfpath_num_5g:4;	/* used for tx power index path */
@@ -246,9 +249,7 @@ struct hal_spec_t {
 
 	u8 wl_func;		/* value of WL_FUNC_XXX */
 
-#if CONFIG_TX_AC_LIFETIME
 	u8 tx_aclt_unit_factor; /* how many 32us */
-#endif
 
 	u8 rx_tsf_filter:1;
 
@@ -322,6 +323,7 @@ typedef struct hal_p2p_ps_para {
 #define TXPWR_LMT_RS_NUM_2G	4 /* CCK, OFDM, HT, VHT */
 #define TXPWR_LMT_RS_NUM_5G	3 /* OFDM, HT, VHT */
 
+#if CONFIG_TXPWR_LIMIT
 extern const char *const _txpwr_lmt_rs_str[];
 #define txpwr_lmt_rs_str(rs) (((rs) >= TXPWR_LMT_RS_NUM) ? _txpwr_lmt_rs_str[TXPWR_LMT_RS_NUM] : _txpwr_lmt_rs_str[(rs)])
 
@@ -340,8 +342,9 @@ struct txpwr_lmt_ent {
 		[MAX_TX_COUNT];
 #endif
 
-	char regd_name[0];
+	char name[0];
 };
+#endif /* CONFIG_TXPWR_LIMIT */
 
 typedef struct hal_com_data {
 	HAL_VERSION			version_id;
@@ -376,7 +379,6 @@ typedef struct hal_com_data {
 	u8				nCur40MhzPrimeSC;	/* Control channel sub-carrier */
 	u8				nCur80MhzPrimeSC;   /* used for primary 40MHz of 80MHz mode */
 	BOOLEAN		bSwChnlAndSetBWInProgress;
-	u8				bDisableSWChannelPlan; /* flag of disable software change channel plan	 */
 	u16				BasicRateSet;
 	u32				ReceiveConfig;
 #ifdef CONFIG_WIFI_MONITOR
@@ -405,6 +407,7 @@ typedef struct hal_com_data {
 	u8 max_tx_cnt;
 	u8	tx_nss; /*tx Spatial Streams - GET_HAL_TX_NSS*/
 	u8	rx_nss; /*rx Spatial Streams - GET_HAL_RX_NSS*/
+	u8 txpath_cap_num_nss[4]; /* capable path num for NSS TX, [0] for 1SS, [3] for 4SS */
 
 	u8	PackageType;
 	u8	antenna_test;
@@ -523,7 +526,8 @@ typedef struct hal_com_data {
 
 	bool set_entire_txpwr;
 
-#if defined(CONFIG_RTL8821C) || defined(CONFIG_RTL8822B) || defined(CONFIG_RTL8822C) || defined(CONFIG_RTL8814B)
+#if defined(CONFIG_RTL8821C) || defined(CONFIG_RTL8822B) || defined(CONFIG_RTL8822C) || defined(CONFIG_RTL8814B) \
+    || defined(CONFIG_RTL8723F)
 	u32 txagc_set_buf;
 #endif
 
@@ -592,7 +596,6 @@ typedef struct hal_com_data {
 	u8			IQK_MP_Switch;
 	u8			bScanInProcess;
 	u8			phydm_init_result; /*BB and RF para match or not*/
-	s8			shift_rxagc;	/* -63 ~ 63 */
 	/******** PHY DM & DM Section **********/
 
 
@@ -668,7 +671,7 @@ typedef struct hal_com_data {
 	/* SDIO Rx FIFO related. */
 	/*  */
 	u8			SdioRxFIFOCnt;
-#ifdef CONFIG_RTL8822C
+#if defined (CONFIG_RTL8822C) || defined (CONFIG_RTL8192F)
 	u32			SdioRxFIFOSize;
 #else
 	u16			SdioRxFIFOSize;
@@ -837,6 +840,12 @@ typedef struct hal_com_data {
 	u8 dma_ch_map[32];	/* TXDESC qsel maximum size */
 #endif
 
+#ifndef RTW_HALMAC /* for SIFS initial value */
+	u16 init_reg_0x428;
+	u32 init_reg_0x514;
+	u16 init_reg_0x63a;
+	u32 init_reg_0x63c;
+#endif
 } HAL_DATA_COMMON, *PHAL_DATA_COMMON;
 
 typedef struct hal_com_data HAL_DATA_TYPE, *PHAL_DATA_TYPE;

@@ -1,7 +1,7 @@
-From 71fe9dd64cd8351a0ab5e55487790df59cd1bdee Mon Sep 17 00:00:00 2001
+From 7d9fed40ec804f0ba11a35e9eb6bd48c831160d5 Mon Sep 17 00:00:00 2001
 From: Salvatore Bonaccorso <carnil@debian.org>
 Date: Fri, 20 Jan 2023 19:23:03 +0100
-Subject: [PATCH 316/322] rt: arm64: make _TIF_WORK_MASK bits contiguous
+Subject: [PATCH 316/323] rt: arm64: make _TIF_WORK_MASK bits contiguous
 X-NVConfidentiality: public
 
 As same as in commit 870d16757ba8 ("arm64: make _TIF_WORK_MASK bits
@@ -30,7 +30,7 @@ Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
  1 file changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/arch/arm64/include/asm/thread_info.h b/arch/arm64/include/asm/thread_info.h
-index a759d514d78c..f41eed8d2577 100644
+index a759d514d78ca..f41eed8d25772 100644
 --- a/arch/arm64/include/asm/thread_info.h
 +++ b/arch/arm64/include/asm/thread_info.h
 @@ -70,12 +70,12 @@ void arch_release_task_struct(struct task_struct *tsk);

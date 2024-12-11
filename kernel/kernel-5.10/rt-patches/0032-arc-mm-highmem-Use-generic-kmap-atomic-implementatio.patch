@@ -1,7 +1,7 @@
-From efd779d044510937ce5d7a52b6e07f8cec0fef10 Mon Sep 17 00:00:00 2001
+From 41f164fe8f4c31aadf197e9cfad1623b63901e18 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:21 +0100
-Subject: [PATCH 032/322] arc/mm/highmem: Use generic kmap atomic
+Subject: [PATCH 032/323] arc/mm/highmem: Use generic kmap atomic
  implementation
 X-NVConfidentiality: public
 
@@ -43,7 +43,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  delete mode 100644 arch/arc/include/asm/kmap_types.h
 
 diff --git a/arch/arc/Kconfig b/arch/arc/Kconfig
-index 0a89cc9def65..d8804001d550 100644
+index 0a89cc9def651..d8804001d5507 100644
 --- a/arch/arc/Kconfig
 +++ b/arch/arc/Kconfig
 @@ -507,6 +507,7 @@ config LINUX_RAM_BASE
@@ -55,7 +55,7 @@ index 0a89cc9def65..d8804001d550 100644
  	  With ARC 2G:2G address split, only upper 2G is directly addressable by
  	  kernel. Enable this to potentially allow access to rest of 2G and PAE
 diff --git a/arch/arc/include/asm/highmem.h b/arch/arc/include/asm/highmem.h
-index 6e5eafb3afdd..a6b8e2c352c4 100644
+index 6e5eafb3afdd4..a6b8e2c352c44 100644
 --- a/arch/arc/include/asm/highmem.h
 +++ b/arch/arc/include/asm/highmem.h
 @@ -9,17 +9,29 @@
@@ -110,7 +110,7 @@ index 6e5eafb3afdd..a6b8e2c352c4 100644
  #endif
 diff --git a/arch/arc/include/asm/kmap_types.h b/arch/arc/include/asm/kmap_types.h
 deleted file mode 100644
-index fecf7851ec32..000000000000
+index fecf7851ec322..0000000000000
 --- a/arch/arc/include/asm/kmap_types.h
 +++ /dev/null
 @@ -1,14 +0,0 @@
@@ -129,7 +129,7 @@ index fecf7851ec32..000000000000
 - */
 -#endif
 diff --git a/arch/arc/mm/highmem.c b/arch/arc/mm/highmem.c
-index 1b9f473c6369..c79912a6b196 100644
+index 1b9f473c63693..c79912a6b1961 100644
 --- a/arch/arc/mm/highmem.c
 +++ b/arch/arc/mm/highmem.c
 @@ -36,9 +36,8 @@

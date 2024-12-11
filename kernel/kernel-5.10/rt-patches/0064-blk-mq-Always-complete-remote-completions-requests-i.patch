@@ -1,7 +1,7 @@
-From aa834dc1418b9396bfb1bad060f56a4caf35c5e1 Mon Sep 17 00:00:00 2001
+From ec1e317bd18254ade3b91cb08c4a692b27f6f7f9 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Sat, 23 Jan 2021 21:10:26 +0100
-Subject: [PATCH 064/322] blk-mq: Always complete remote completions requests
+Subject: [PATCH 064/323] blk-mq: Always complete remote completions requests
  in softirq
 X-NVConfidentiality: public
 
@@ -20,7 +20,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 13 deletions(-)
 
 diff --git a/block/blk-mq.c b/block/blk-mq.c
-index ef949aa08985..52745c674542 100644
+index e1d54cdcbcb30..25c90da059957 100644
 --- a/block/blk-mq.c
 +++ b/block/blk-mq.c
 @@ -630,19 +630,7 @@ static void __blk_mq_complete_request_remote(void *data)

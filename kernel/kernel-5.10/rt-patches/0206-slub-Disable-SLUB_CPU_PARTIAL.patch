@@ -1,7 +1,7 @@
-From 6e5af279e2ba1d74fbf27a2c8bc2371d3a6d1b37 Mon Sep 17 00:00:00 2001
+From d030f3225ebb29edf9d0aadb115752ff44c6db75 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 15 Apr 2015 19:00:47 +0200
-Subject: [PATCH 206/322] slub: Disable SLUB_CPU_PARTIAL
+Subject: [PATCH 206/323] slub: Disable SLUB_CPU_PARTIAL
 X-NVConfidentiality: public
 
 |BUG: sleeping function called from invalid context at kernel/locking/rtmutex.c:915
@@ -37,7 +37,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/init/Kconfig b/init/Kconfig
-index 7e9578a0176f..c5f276d782de 100644
+index 7e9578a0176f4..c5f276d782def 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
 @@ -2011,7 +2011,7 @@ config SHUFFLE_PAGE_ALLOCATOR

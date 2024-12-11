@@ -1,7 +1,7 @@
-From bc63d0505f0bb68084abffb730d3a9209aba2214 Mon Sep 17 00:00:00 2001
+From b66869a09ffcd007961d10a9cb114a4de4a0f956 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 6 Dec 2018 09:52:20 +0100
-Subject: [PATCH 252/322] drm/i915: disable tracing on -RT
+Subject: [PATCH 252/323] drm/i915: disable tracing on -RT
 X-NVConfidentiality: public
 
 Luca Abeni reported this:
@@ -28,7 +28,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 4 insertions(+)
 
 diff --git a/drivers/gpu/drm/i915/i915_trace.h b/drivers/gpu/drm/i915/i915_trace.h
-index a4addcc64978..0ba5a0a0fd25 100644
+index a4addcc649782..0ba5a0a0fd252 100644
 --- a/drivers/gpu/drm/i915/i915_trace.h
 +++ b/drivers/gpu/drm/i915/i915_trace.h
 @@ -2,6 +2,10 @@

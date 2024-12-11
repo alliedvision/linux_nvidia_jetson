@@ -1,7 +1,7 @@
-From 501ee403c77f5196433e275af31f62cbc6feabf4 Mon Sep 17 00:00:00 2001
+From 763c34fde6fa61931215bdcc0523e996ae8866bc Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:12:05 +0200
-Subject: [PATCH 008/322] sched: Fix hotplug vs CPU bandwidth control
+Subject: [PATCH 008/323] sched: Fix hotplug vs CPU bandwidth control
 X-NVConfidentiality: public
 
 Since we now migrate tasks away before DYING, we should also move
@@ -25,10 +25,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  3 files changed, 12 insertions(+), 6 deletions(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 669a390656d5..d37233647c6a 100644
+index cd59c3c9220dc..f67b5996b664e 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
-@@ -6986,6 +6986,8 @@ int sched_cpu_activate(unsigned int cpu)
+@@ -6981,6 +6981,8 @@ int sched_cpu_activate(unsigned int cpu)
  
  int sched_cpu_deactivate(unsigned int cpu)
  {
@@ -37,7 +37,7 @@ index 669a390656d5..d37233647c6a 100644
  	int ret;
  
  	set_cpu_active(cpu, false);
-@@ -7000,6 +7002,14 @@ int sched_cpu_deactivate(unsigned int cpu)
+@@ -6995,6 +6997,14 @@ int sched_cpu_deactivate(unsigned int cpu)
  
  	balance_push_set(cpu, true);
  
@@ -52,7 +52,7 @@ index 669a390656d5..d37233647c6a 100644
  #ifdef CONFIG_SCHED_SMT
  	/*
  	 * When going down, decrement the number of cores with SMT present.
-@@ -7081,10 +7091,6 @@ int sched_cpu_dying(unsigned int cpu)
+@@ -7076,10 +7086,6 @@ int sched_cpu_dying(unsigned int cpu)
  	sched_tick_stop(cpu);
  
  	rq_lock_irqsave(rq, &rf);
@@ -64,10 +64,10 @@ index 669a390656d5..d37233647c6a 100644
  	rq_unlock_irqrestore(rq, &rf);
  
 diff --git a/kernel/sched/deadline.c b/kernel/sched/deadline.c
-index f59cb3e8a613..c3babac0c8c5 100644
+index d91295d3059f7..af8569dbdc9c1 100644
 --- a/kernel/sched/deadline.c
 +++ b/kernel/sched/deadline.c
-@@ -565,7 +565,7 @@ static int push_dl_task(struct rq *rq);
+@@ -566,7 +566,7 @@ static int push_dl_task(struct rq *rq);
  
  static inline bool need_pull_dl_task(struct rq *rq, struct task_struct *prev)
  {
@@ -77,7 +77,7 @@ index f59cb3e8a613..c3babac0c8c5 100644
  
  static DEFINE_PER_CPU(struct callback_head, dl_push_head);
 diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
-index f690f901b6cc..fdcce04913db 100644
+index 1289991c970e1..32ef35af8f309 100644
 --- a/kernel/sched/rt.c
 +++ b/kernel/sched/rt.c
 @@ -270,7 +270,7 @@ static void pull_rt_task(struct rq *this_rq);

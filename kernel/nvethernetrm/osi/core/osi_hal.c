@@ -501,6 +501,39 @@ fail:
 	return ret;
 }
 
+static nve32_t validate_txqueues_derive_txfifosz(struct osi_core_priv_data *const osi_core)
+{
+	struct core_local *l_core = (struct core_local *)(void *)osi_core;
+	const nveu32_t tx_fifosz[3U] = { EQOS_MAC_XP_TX_FIFO_SZ, EQOS_MAC_TX_FIFO_SZ,
+					MGBE_MAC_TX_FIFO_SZ };
+	nveu32_t tx_queue_num = 0U, i = 0U;
+	nve32_t ret = 0;
+
+	if ((osi_core->num_mtl_queues == 0U) ||
+	    (osi_core->num_mtl_queues > l_core->num_max_chans)) {
+		OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_INVALID,
+			     "Invalid number of MTL queues\n", (nveu64_t)osi_core->num_mtl_queues);
+		ret = -1;
+		goto fail;
+	}
+
+	for (i = 0U; i < osi_core->num_mtl_queues; i++) {
+		tx_queue_num = osi_core->mtl_queues[i];
+		if (tx_queue_num > l_core->num_max_chans) {
+			OSI_CORE_ERR(osi_core->osd, OSI_LOG_ARG_INVALID,
+				     "Invalid Tx queue number\n", (nveu64_t)tx_queue_num);
+			ret = -1;
+			goto fail;
+		}
+	}
+
+	l_core->tx_fifosz_perq = ((tx_fifosz[l_core->l_mac_ver] / osi_core->num_mtl_queues) /
+				  256U) - 1U;
+
+fail:
+	return ret;
+}
+
 static nve32_t osi_get_mac_version(struct osi_core_priv_data *const osi_core, nveu32_t *mac_ver)
 {
 	struct core_local *l_core = (struct core_local *)(void *)osi_core;
@@ -530,6 +563,11 @@ static nve32_t osi_hal_hw_core_init(struct osi_core_priv_data *const osi_core)
 	if (ret < 0) {
 		goto fail;
 	}
+
+	/* Validate and derive TXFIFO size per Queue */
+	ret = validate_txqueues_derive_txfifosz(osi_core);
+	if (ret < 0)
+		goto fail;
 
 	/* Bring MAC out of reset */
 	ret = hw_poll_for_swr(osi_core);

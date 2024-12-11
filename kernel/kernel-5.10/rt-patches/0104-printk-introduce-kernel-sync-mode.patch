@@ -1,7 +1,7 @@
-From 5a344b7a3ce2e7cadc44a505da615653d0f9a501 Mon Sep 17 00:00:00 2001
+From 3b344e9e6e95c52d72c9687c36d21e933962430f Mon Sep 17 00:00:00 2001
 From: John Ogness <john.ogness@linutronix.de>
 Date: Mon, 30 Nov 2020 01:42:06 +0106
-Subject: [PATCH 104/322] printk: introduce kernel sync mode
+Subject: [PATCH 104/323] printk: introduce kernel sync mode
 X-NVConfidentiality: public
 
 When the kernel performs an OOPS, enter into "sync mode":
@@ -22,7 +22,7 @@ Signed-off-by: Luis Claudio R. Goncalves <lgoncalv@redhat.com>
  3 files changed, 137 insertions(+), 6 deletions(-)
 
 diff --git a/include/linux/console.h b/include/linux/console.h
-index 613df76903f5..fcc98354f733 100644
+index 613df76903f54..fcc98354f7332 100644
 --- a/include/linux/console.h
 +++ b/include/linux/console.h
 @@ -16,6 +16,7 @@
@@ -44,7 +44,7 @@ index 613df76903f5..fcc98354f733 100644
  	uint	ospeed;
  	void	*data;
 diff --git a/include/linux/printk.h b/include/linux/printk.h
-index c6bb48f0134c..3738374e2b3b 100644
+index c6bb48f0134c0..3738374e2b3bc 100644
 --- a/include/linux/printk.h
 +++ b/include/linux/printk.h
 @@ -46,6 +46,12 @@ static inline const char *printk_skip_headers(const char *buffer)
@@ -61,7 +61,7 @@ index c6bb48f0134c..3738374e2b3b 100644
  #define MESSAGE_LOGLEVEL_DEFAULT CONFIG_MESSAGE_LOGLEVEL_DEFAULT
  
 diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
-index 2bc9904fd8ab..8a0af76b6f69 100644
+index 818c17b26bdee..1ce593876dca9 100644
 --- a/kernel/printk/printk.c
 +++ b/kernel/printk/printk.c
 @@ -44,6 +44,7 @@
@@ -184,7 +184,7 @@ index 2bc9904fd8ab..8a0af76b6f69 100644
  /*
   * Special console_lock variants that help to reduce the risk of soft-lockups.
   * They allow to pass console_lock to another printk() call using a busy wait.
-@@ -1919,6 +2005,8 @@ static void call_console_drivers(const char *ext_text, size_t ext_len,
+@@ -1925,6 +2011,8 @@ static void call_console_drivers(const char *ext_text, size_t ext_len,
  		if (!cpu_online(smp_processor_id()) &&
  		    !(con->flags & CON_ANYTIME))
  			continue;
@@ -193,7 +193,7 @@ index 2bc9904fd8ab..8a0af76b6f69 100644
  		if (con->flags & CON_EXTENDED)
  			con->write(con, ext_text, ext_len);
  		else {
-@@ -2073,6 +2161,7 @@ int vprintk_store(int facility, int level,
+@@ -2079,6 +2167,7 @@ int vprintk_store(int facility, int level,
  	const u32 caller_id = printk_caller_id();
  	struct prb_reserved_entry e;
  	enum log_flags lflags = 0;
@@ -201,7 +201,7 @@ index 2bc9904fd8ab..8a0af76b6f69 100644
  	struct printk_record r;
  	unsigned long irqflags;
  	u16 trunc_msg_len = 0;
-@@ -2082,6 +2171,7 @@ int vprintk_store(int facility, int level,
+@@ -2088,6 +2177,7 @@ int vprintk_store(int facility, int level,
  	u16 text_len;
  	int ret = 0;
  	u64 ts_nsec;
@@ -209,7 +209,7 @@ index 2bc9904fd8ab..8a0af76b6f69 100644
  
  	/*
  	 * Since the duration of printk() can vary depending on the message
-@@ -2120,6 +2210,7 @@ int vprintk_store(int facility, int level,
+@@ -2126,6 +2216,7 @@ int vprintk_store(int facility, int level,
  	if (lflags & LOG_CONT) {
  		prb_rec_init_wr(&r, reserve_size);
  		if (prb_reserve_in_last(&e, prb, &r, caller_id, LOG_LINE_MAX)) {
@@ -217,7 +217,7 @@ index 2bc9904fd8ab..8a0af76b6f69 100644
  			text_len = printk_sprint(&r.text_buf[r.info->text_len], reserve_size,
  						 facility, &lflags, fmt, args);
  			r.info->text_len += text_len;
-@@ -2127,6 +2218,7 @@ int vprintk_store(int facility, int level,
+@@ -2133,6 +2224,7 @@ int vprintk_store(int facility, int level,
  			if (lflags & LOG_NEWLINE) {
  				r.info->flags |= LOG_NEWLINE;
  				prb_final_commit(&e);
@@ -225,7 +225,7 @@ index 2bc9904fd8ab..8a0af76b6f69 100644
  			} else {
  				prb_commit(&e);
  			}
-@@ -2151,6 +2243,8 @@ int vprintk_store(int facility, int level,
+@@ -2157,6 +2249,8 @@ int vprintk_store(int facility, int level,
  			goto out;
  	}
  
@@ -234,7 +234,7 @@ index 2bc9904fd8ab..8a0af76b6f69 100644
  	/* fill message */
  	text_len = printk_sprint(&r.text_buf[0], reserve_size, facility, &lflags, fmt, args);
  	if (trunc_msg_len)
-@@ -2165,13 +2259,25 @@ int vprintk_store(int facility, int level,
+@@ -2171,13 +2265,25 @@ int vprintk_store(int facility, int level,
  		memcpy(&r.info->dev_info, dev_info, sizeof(r.info->dev_info));
  
  	/* A message without a trailing newline can be continued. */
@@ -262,7 +262,7 @@ index 2bc9904fd8ab..8a0af76b6f69 100644
  	printk_exit_irqrestore(irqflags);
  	return ret;
  }
-@@ -2267,12 +2373,13 @@ EXPORT_SYMBOL(printk);
+@@ -2273,12 +2379,13 @@ EXPORT_SYMBOL(printk);
  
  #else /* CONFIG_PRINTK */
  
@@ -277,7 +277,7 @@ index 2bc9904fd8ab..8a0af76b6f69 100644
  static u64 syslog_seq;
  static atomic64_t console_seq = ATOMIC64_INIT(0);
  static u64 exclusive_console_stop_seq;
-@@ -2565,6 +2672,8 @@ static int have_callable_console(void)
+@@ -2571,6 +2678,8 @@ static int have_callable_console(void)
   */
  static inline int can_use_console(void)
  {
@@ -286,7 +286,7 @@ index 2bc9904fd8ab..8a0af76b6f69 100644
  	return cpu_online(raw_smp_processor_id()) || have_callable_console();
  }
  
-@@ -3379,6 +3488,18 @@ void kmsg_dump(enum kmsg_dump_reason reason)
+@@ -3408,6 +3517,18 @@ void kmsg_dump(enum kmsg_dump_reason reason)
  	struct kmsg_dumper_iter iter;
  	struct kmsg_dumper *dumper;
  

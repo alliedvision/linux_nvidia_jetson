@@ -1,7 +1,7 @@
-From f841084fa7a15142ebe4ac8dcca075f291137c74 Mon Sep 17 00:00:00 2001
+From 37e232ccf7b5a42bda2b37199a2c81cc536132d2 Mon Sep 17 00:00:00 2001
 From: Josh Cartwright <josh.cartwright@ni.com>
 Date: Wed, 28 Jan 2015 13:08:45 -0600
-Subject: [PATCH 248/322] lockdep: selftest: fix warnings due to missing
+Subject: [PATCH 248/323] lockdep: selftest: fix warnings due to missing
  PREEMPT_RT conditionals
 X-NVConfidentiality: public
 
@@ -29,7 +29,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 28 insertions(+)
 
 diff --git a/lib/locking-selftest.c b/lib/locking-selftest.c
-index 663c071bc445..98c376b02dff 100644
+index 663c071bc445e..98c376b02dff9 100644
 --- a/lib/locking-selftest.c
 +++ b/lib/locking-selftest.c
 @@ -787,6 +787,8 @@ GENERATE_TESTCASE(init_held_rtmutex);

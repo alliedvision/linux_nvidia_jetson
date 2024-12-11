@@ -59,6 +59,8 @@ enum tegra_pinconf_param {
 	/* argument: Boolean */
 	TEGRA_PINCONF_PARAM_PAD_POWER,
 	/* argument: Boolean */
+	TEGRA_PINCONF_PARAM_GPIO_MODE,
+	/* argument: Boolean */
 	TEGRA_PINCONF_PARAM_LPDR,
 };
 

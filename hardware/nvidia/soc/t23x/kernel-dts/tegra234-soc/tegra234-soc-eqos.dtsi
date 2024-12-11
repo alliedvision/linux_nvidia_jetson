@@ -39,7 +39,7 @@
 	};
 
 	eqos_vm_irq_config: vm-irq-config {
-		nvidia,num-vm-irqs = <4>;
+		nvidia,num-vm-irqs = <2>;
 		vm_irq1 {
 			nvidia,num-vm-channels = <2>;
 			nvidia,vm-channels = <0 1>;
@@ -49,16 +49,6 @@
 			nvidia,num-vm-channels = <2>;
 			nvidia,vm-channels = <2 3>;
 			nvidia,vm-num = <1>;
-		};
-		vm_irq3 {
-			nvidia,num-vm-channels = <2>;
-			nvidia,vm-channels = <4 5>;
-			nvidia,vm-num = <2>;
-		};
-		vm_irq4 {
-			nvidia,num-vm-channels = <2>;
-			nvidia,vm-channels = <6 7>;
-			nvidia,vm-num = <3>;
 		};
 	};
 
@@ -71,12 +61,10 @@
 		interrupts = <0 194 0x4>,       /* common */
 			     <0 186 0x4>, /* vm0 */
 			     <0 187 0x4>, /* vm1 */
-			     <0 188 0x4>, /* vm2 */
-			     <0 189 0x4>, /* vm3 */
 			     <0 190 0x4>, /* MACsec non-secure intr */
 			     <0 191 0x4>; /* MACsec secure intr */
-		interrupt-names = "common", "vm0", "vm1", "vm2", "vm3",
-				  "macsec-ns-irq", "macsec-s-irq";
+		interrupt-names = "common", "vm0", "vm1", "macsec-ns-irq",
+				  "macsec-s-irq";
 		resets = <&bpmp_resets TEGRA234_RESET_EQOS>,
 			 <&bpmp_resets TEGRA234_RESET_EQOS_MACSEC>; /* MACsec non-secure reset */
 		reset-names = "mac", "macsec_ns_rst";
@@ -102,15 +90,15 @@
 		interconnect-names = "dma-mem", "write";
 #endif
 		iommus = <&smmu_niso1 TEGRA_SID_NISO1_EQOS>;
-		nvidia,num-dma-chans = <8>;
-		nvidia,num-mtl-queues = <8>;
-		nvidia,mtl-queues = <0 1 2 3 4 5 6 7>;
-		nvidia,dma-chans = <0 1 2 3 4 5 6 7>;
-		nvidia,tc-mapping = <0 1 2 3 4 5 6 7>;
+		nvidia,num-dma-chans = <4>;
+		nvidia,num-mtl-queues = <4>;
+		nvidia,mtl-queues = <0 1 2 3>;
+		nvidia,dma-chans = <0 1 2 3>;
+		nvidia,tc-mapping = <0 1 2 3>;
 		/* Residual Queue can be any valid queue except RxQ0 */
 		nvidia,residual-queue = <1>;
 		nvidia,rx-queue-prio = <0x2 0x1 0x30 0x48 0x0 0x0 0x0 0x0>;
-		nvidia,tx-queue-prio = <0x0 0x7 0x2 0x3 0x0 0x0 0x0 0x0>;
+		nvidia,tx-queue-prio = <0x0 0x7 0x2 0x3>;
 		nvidia,rxq_enable_ctrl = <2 2 2 2 2 2 2 2>;
 		nvidia,vm-irq-config = <&eqos_vm_irq_config>;
 		status = "disabled";
@@ -121,8 +109,8 @@
 		nvidia,tx_usecs = <256>;
 		nvidia,tx_frames = <5>;
 		nvidia,promisc_mode = <1>;
-		nvidia,slot_num_check = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
-		nvidia,slot_intvl_vals = <0x0 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D 0x7D>;
+		nvidia,slot_num_check = <0x0 0x0 0x0 0x0>;
+		nvidia,slot_intvl_vals = <0x0 0x7D 0x7D 0x7D>;
 		nvidia,ptp_ref_clock_speed = <208333334>;
 		nvidia,instance_id = <4>; /* EQOS instance */
 		nvidia,ptp-rx-queue = <3>;

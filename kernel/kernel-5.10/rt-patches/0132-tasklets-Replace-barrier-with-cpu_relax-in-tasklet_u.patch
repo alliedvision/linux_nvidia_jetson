@@ -1,7 +1,7 @@
-From 612e50a92f13e7c06a255862165ba9ef61e6e7c0 Mon Sep 17 00:00:00 2001
+From 153a9cc27c25bcf9625e3876cc1e42087a3c690b Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 9 Mar 2021 09:42:04 +0100
-Subject: [PATCH 132/322] tasklets: Replace barrier() with cpu_relax() in
+Subject: [PATCH 132/323] tasklets: Replace barrier() with cpu_relax() in
  tasklet_unlock_wait()
 X-NVConfidentiality: public
 
@@ -17,7 +17,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index 0652b4858ba6..fad0eb9d42ab 100644
+index 0652b4858ba62..fad0eb9d42aba 100644
 --- a/include/linux/interrupt.h
 +++ b/include/linux/interrupt.h
 @@ -672,7 +672,8 @@ static inline void tasklet_unlock(struct tasklet_struct *t)

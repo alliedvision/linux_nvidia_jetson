@@ -1,7 +1,7 @@
-From e826680184ffa05a276f3a7b1284f207b1cdf3f8 Mon Sep 17 00:00:00 2001
+From 94d2611aae05c72a6b93065f69b27fd9a007ed42 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Mon, 9 Nov 2020 21:30:41 +0100
-Subject: [PATCH 068/322] kthread: Move prio/affinite change into the newly
+Subject: [PATCH 068/323] kthread: Move prio/affinite change into the newly
  created thread
 X-NVConfidentiality: public
 
@@ -34,7 +34,7 @@ Link: https://lkml.kernel.org/r/a23a826af7c108ea5651e73b8fbae5e653f16e86.camel@g
  1 file changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/kernel/kthread.c b/kernel/kthread.c
-index 508fe5278285..3ce6a31db7b4 100644
+index 508fe52782857..3ce6a31db7b4b 100644
 --- a/kernel/kthread.c
 +++ b/kernel/kthread.c
 @@ -264,6 +264,7 @@ EXPORT_SYMBOL_GPL(kthread_parkme);

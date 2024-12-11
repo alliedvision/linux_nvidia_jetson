@@ -1,7 +1,7 @@
-From 03dfa0a1eb4f3ec96d08035cd7a78f983d4795ce Mon Sep 17 00:00:00 2001
+From e4729e133e19a33da113b749108ca67f7014ffb4 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 27 Oct 2020 11:09:50 +0100
-Subject: [PATCH 154/322] x86/fpu: Simplify fpregs_[un]lock()
+Subject: [PATCH 154/323] x86/fpu: Simplify fpregs_[un]lock()
 X-NVConfidentiality: public
 
 There is no point in disabling preemption and then disabling bottom
@@ -18,7 +18,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/arch/x86/include/asm/fpu/api.h b/arch/x86/include/asm/fpu/api.h
-index 8b9bfaad6e66..5174c0a640ef 100644
+index 8b9bfaad6e662..5174c0a640ef3 100644
 --- a/arch/x86/include/asm/fpu/api.h
 +++ b/arch/x86/include/asm/fpu/api.h
 @@ -40,17 +40,18 @@ static inline void kernel_fpu_begin(void)

@@ -1,7 +1,7 @@
-From 59900c7c5485f516ffce7eda42eb0e81803b2e6c Mon Sep 17 00:00:00 2001
+From 466c4eb54bb4c077791eaa4c0c1d713e00b01cd6 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 9 Mar 2021 09:55:55 +0100
-Subject: [PATCH 148/322] softirq: Move various protections into inline helpers
+Subject: [PATCH 148/323] softirq: Move various protections into inline helpers
 X-NVConfidentiality: public
 
 To allow reuse of the bulk of softirq processing code for RT and to avoid
@@ -17,7 +17,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 32 insertions(+), 7 deletions(-)
 
 diff --git a/kernel/softirq.c b/kernel/softirq.c
-index fcb201ceed71..87fac6ac0c32 100644
+index fcb201ceed712..87fac6ac0c32e 100644
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
 @@ -205,6 +205,32 @@ void __local_bh_enable_ip(unsigned long ip, unsigned int cnt)

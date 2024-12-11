@@ -191,7 +191,7 @@ void _phy_aac_calibrate_8822c(struct dm_struct *dm)
 	u32 cnt = 0;
 
 	RF_DBG(dm, DBG_RF_LCK, "[AACK]AACK start!!!!!!!\n");
-	odm_set_rf_reg(dm, RF_PATH_A, 0xbb, RFREGOFFSETMASK, 0x80010);
+	//odm_set_rf_reg(dm, RF_PATH_A, 0xbb, RFREGOFFSETMASK, 0x80010);
 	odm_set_rf_reg(dm, RF_PATH_A, 0xb0, RFREGOFFSETMASK, 0x1F0FA);
 	ODM_delay_ms(1);
 	odm_set_rf_reg(dm, RF_PATH_A, RF_0xca, RFREGOFFSETMASK, 0x80000);
@@ -203,7 +203,7 @@ void _phy_aac_calibrate_8822c(struct dm_struct *dm)
 	}
 
 	odm_set_rf_reg(dm, RF_PATH_A, RF_0xb0, RFREGOFFSETMASK, 0x1F0F8);
-	odm_set_rf_reg(dm, RF_PATH_B, 0xbb, RFREGOFFSETMASK, 0x80010);
+	//odm_set_rf_reg(dm, RF_PATH_B, 0xbb, RFREGOFFSETMASK, 0x80010);
 
 	RF_DBG(dm, DBG_RF_IQK, "[AACK]AACK end!!!!!!!\n");
 #endif

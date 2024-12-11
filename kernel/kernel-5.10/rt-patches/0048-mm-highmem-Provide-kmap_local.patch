@@ -1,7 +1,7 @@
-From c8dbb443cfe8f0f6ffaca2b235d9d5e076dc42e4 Mon Sep 17 00:00:00 2001
+From fca47df2fc5d066993329a13b90bcf69a61eea74 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:37 +0100
-Subject: [PATCH 048/322] mm/highmem: Provide kmap_local*
+Subject: [PATCH 048/323] mm/highmem: Provide kmap_local*
 X-NVConfidentiality: public
 
 Now that the kmap atomic index is stored in task struct provide a
@@ -28,7 +28,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  3 files changed, 81 insertions(+), 16 deletions(-)
 
 diff --git a/include/linux/highmem-internal.h b/include/linux/highmem-internal.h
-index c5a22177db85..1bbe96dc8be6 100644
+index c5a22177db85b..1bbe96dc8be65 100644
 --- a/include/linux/highmem-internal.h
 +++ b/include/linux/highmem-internal.h
 @@ -68,6 +68,26 @@ static inline void kmap_flush_unused(void)
@@ -99,7 +99,7 @@ index c5a22177db85..1bbe96dc8be6 100644
 +
  #endif
 diff --git a/include/linux/highmem.h b/include/linux/highmem.h
-index 5c888525b4c5..7a3c6d4b79d8 100644
+index 5c888525b4c58..7a3c6d4b79d82 100644
 --- a/include/linux/highmem.h
 +++ b/include/linux/highmem.h
 @@ -60,24 +60,22 @@ static inline struct page *kmap_to_page(void *addr);
@@ -179,7 +179,7 @@ index 5c888525b4c5..7a3c6d4b79d8 100644
  
  /* Highmem related interfaces for management code */
 diff --git a/mm/highmem.c b/mm/highmem.c
-index d7a1c80001d0..8db577e5290c 100644
+index d7a1c80001d02..8db577e5290cc 100644
 --- a/mm/highmem.c
 +++ b/mm/highmem.c
 @@ -450,6 +450,11 @@ void *__kmap_local_pfn_prot(unsigned long pfn, pgprot_t prot)

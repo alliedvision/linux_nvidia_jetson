@@ -47,6 +47,9 @@
  * @brief FIFO size helper macro
  */
 #define FIFO_SZ(x)		((((x) * 1024U) / 256U) - 1U)
+#define EQOS_MAC_XP_TX_FIFO_SZ		36864U
+#define EQOS_MAC_TX_FIFO_SZ		65536U
+#define MGBE_MAC_TX_FIFO_SZ		131072U
 
 /**
  * @brief Dynamic configuration helper macros.
@@ -386,6 +389,8 @@ struct core_local {
 	/** l3l4 wildcard filter configured (OSI_ENABLE) / not configured (OSI_DISABLE) */
 	nveu32_t l3l4_wildcard_filter_configured;
 #endif /* L3L4_WILDCARD_FILTER */
+	/** TXFIFO size per queue */
+	nveu32_t tx_fifosz_perq;
 };
 
 /**

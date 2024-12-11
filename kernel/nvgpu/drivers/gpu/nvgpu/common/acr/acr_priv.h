@@ -136,6 +136,7 @@ struct nvgpu_acr {
 
 	/* LSF properties */
 	u64 lsf_enable_mask;
+	bool is_lsf_encrypt_support;
 	struct acr_lsf_config lsf[FALCON_ID_END];
 
 	/*

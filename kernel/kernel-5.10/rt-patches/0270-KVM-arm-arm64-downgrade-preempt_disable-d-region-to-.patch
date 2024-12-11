@@ -1,7 +1,7 @@
-From fb5b901ee696fe6dbf990e937b68711e4696d955 Mon Sep 17 00:00:00 2001
+From 868398d72459c200b17eb45a3101275986df3478 Mon Sep 17 00:00:00 2001
 From: Josh Cartwright <joshc@ni.com>
 Date: Thu, 11 Feb 2016 11:54:01 -0600
-Subject: [PATCH 270/322] KVM: arm/arm64: downgrade preempt_disable()d region
+Subject: [PATCH 270/323] KVM: arm/arm64: downgrade preempt_disable()d region
  to migrate_disable()
 X-NVConfidentiality: public
 
@@ -24,7 +24,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/arch/arm64/kvm/arm.c b/arch/arm64/kvm/arm.c
-index 4d63fcd7574b..06fced951e75 100644
+index 4d63fcd7574b2..06fced951e754 100644
 --- a/arch/arm64/kvm/arm.c
 +++ b/arch/arm64/kvm/arm.c
 @@ -708,7 +708,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)

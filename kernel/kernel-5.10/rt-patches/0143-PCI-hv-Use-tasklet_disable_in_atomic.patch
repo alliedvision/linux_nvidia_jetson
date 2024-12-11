@@ -1,7 +1,7 @@
-From 41355a4a6781f883aa985af128f72a963947fa27 Mon Sep 17 00:00:00 2001
+From dc5b76c8fbf928cab6441029deb5b89124dfc0fc Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 9 Mar 2021 09:42:15 +0100
-Subject: [PATCH 143/322] PCI: hv: Use tasklet_disable_in_atomic()
+Subject: [PATCH 143/323] PCI: hv: Use tasklet_disable_in_atomic()
 X-NVConfidentiality: public
 
 The hv_compose_msi_msg() callback in irq_chip::irq_compose_msi_msg is
@@ -29,7 +29,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/pci/controller/pci-hyperv.c b/drivers/pci/controller/pci-hyperv.c
-index 2d6c77dcc815..7daba964f54e 100644
+index 2d6c77dcc815c..7daba964f54ed 100644
 --- a/drivers/pci/controller/pci-hyperv.c
 +++ b/drivers/pci/controller/pci-hyperv.c
 @@ -1518,7 +1518,7 @@ static void hv_compose_msi_msg(struct irq_data *data, struct msi_msg *msg)

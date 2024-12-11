@@ -1,7 +1,7 @@
-From bc84fc95ae79196b58d4c4fd0e22160479853df2 Mon Sep 17 00:00:00 2001
+From 61c25d3056a5b3d63a4599d8d6ffd092ee6273b8 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Tue, 9 Mar 2021 09:42:09 +0100
-Subject: [PATCH 137/322] tasklets: Replace spin wait in tasklet_kill()
+Subject: [PATCH 137/323] tasklets: Replace spin wait in tasklet_kill()
 X-NVConfidentiality: public
 
 tasklet_kill() spin waits for TASKLET_STATE_SCHED to be cleared invoking
@@ -21,7 +21,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 15 insertions(+), 8 deletions(-)
 
 diff --git a/kernel/softirq.c b/kernel/softirq.c
-index 06bca024ce45..ecc3ac4091c8 100644
+index 06bca024ce45b..ecc3ac4091c8c 100644
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
 @@ -530,6 +530,16 @@ void __tasklet_hi_schedule(struct tasklet_struct *t)

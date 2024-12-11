@@ -1,7 +1,7 @@
-From c11f90bbd3ba5a33fa45ae79a0494ce6313b1ad5 Mon Sep 17 00:00:00 2001
+From bd4da8d7cd1d7cceb54b832c9d19364bfb9d3e71 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:46 +0100
-Subject: [PATCH 057/322] drm/qxl: Replace io_mapping_map_atomic_wc()
+Subject: [PATCH 057/323] drm/qxl: Replace io_mapping_map_atomic_wc()
 X-NVConfidentiality: public
 
 None of these mapping requires the side effect of disabling pagefaults and
@@ -28,7 +28,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  5 files changed, 32 insertions(+), 33 deletions(-)
 
 diff --git a/drivers/gpu/drm/qxl/qxl_image.c b/drivers/gpu/drm/qxl/qxl_image.c
-index 60ab7151b84d..93f92ccd42e5 100644
+index 60ab7151b84dc..93f92ccd42e58 100644
 --- a/drivers/gpu/drm/qxl/qxl_image.c
 +++ b/drivers/gpu/drm/qxl/qxl_image.c
 @@ -124,12 +124,12 @@ qxl_image_init_helper(struct qxl_device *qdev,
@@ -105,10 +105,10 @@ index 60ab7151b84d..93f92ccd42e5 100644
  	return 0;
  }
 diff --git a/drivers/gpu/drm/qxl/qxl_ioctl.c b/drivers/gpu/drm/qxl/qxl_ioctl.c
-index 5cea6eea72ab..785023081b79 100644
+index 9a02c48714007..758c484c7986f 100644
 --- a/drivers/gpu/drm/qxl/qxl_ioctl.c
 +++ b/drivers/gpu/drm/qxl/qxl_ioctl.c
-@@ -89,11 +89,11 @@ apply_reloc(struct qxl_device *qdev, struct qxl_reloc_info *info)
+@@ -88,11 +88,11 @@ apply_reloc(struct qxl_device *qdev, struct qxl_reloc_info *info)
  {
  	void *reloc_page;
  
@@ -122,7 +122,7 @@ index 5cea6eea72ab..785023081b79 100644
  }
  
  static void
-@@ -105,9 +105,9 @@ apply_surf_reloc(struct qxl_device *qdev, struct qxl_reloc_info *info)
+@@ -104,9 +104,9 @@ apply_surf_reloc(struct qxl_device *qdev, struct qxl_reloc_info *info)
  	if (info->src_bo && !info->src_bo->is_primary)
  		id = info->src_bo->surface_id;
  
@@ -134,7 +134,7 @@ index 5cea6eea72ab..785023081b79 100644
  }
  
  /* return holding the reference to this object */
-@@ -149,7 +149,6 @@ static int qxl_process_single_command(struct qxl_device *qdev,
+@@ -148,7 +148,6 @@ static int qxl_process_single_command(struct qxl_device *qdev,
  	struct qxl_bo *cmd_bo;
  	void *fb_cmd;
  	int i, ret, num_relocs;
@@ -142,7 +142,7 @@ index 5cea6eea72ab..785023081b79 100644
  
  	switch (cmd->type) {
  	case QXL_CMD_DRAW:
-@@ -185,21 +184,21 @@ static int qxl_process_single_command(struct qxl_device *qdev,
+@@ -184,21 +183,21 @@ static int qxl_process_single_command(struct qxl_device *qdev,
  		goto out_free_reloc;
  
  	/* TODO copy slow path code from i915 */
@@ -174,7 +174,7 @@ index 5cea6eea72ab..785023081b79 100644
  	}
  
 diff --git a/drivers/gpu/drm/qxl/qxl_object.c b/drivers/gpu/drm/qxl/qxl_object.c
-index 544a9e4df2a8..5ee5171d46ef 100644
+index 544a9e4df2a86..5ee5171d46ef8 100644
 --- a/drivers/gpu/drm/qxl/qxl_object.c
 +++ b/drivers/gpu/drm/qxl/qxl_object.c
 @@ -173,8 +173,8 @@ int qxl_bo_kmap(struct qxl_bo *bo, void **ptr)
@@ -216,7 +216,7 @@ index 544a9e4df2a8..5ee5171d46ef 100644
   fallback:
  	qxl_bo_kunmap(bo);
 diff --git a/drivers/gpu/drm/qxl/qxl_object.h b/drivers/gpu/drm/qxl/qxl_object.h
-index 5762ea40d047..6ae89b1b36f4 100644
+index 5762ea40d047c..6ae89b1b36f47 100644
 --- a/drivers/gpu/drm/qxl/qxl_object.h
 +++ b/drivers/gpu/drm/qxl/qxl_object.h
 @@ -89,8 +89,8 @@ extern int qxl_bo_create(struct qxl_device *qdev,
@@ -231,7 +231,7 @@ index 5762ea40d047..6ae89b1b36f4 100644
  extern void qxl_bo_unref(struct qxl_bo **bo);
  extern int qxl_bo_pin(struct qxl_bo *bo);
 diff --git a/drivers/gpu/drm/qxl/qxl_release.c b/drivers/gpu/drm/qxl/qxl_release.c
-index b2a475a0ca4a..b665a33b449b 100644
+index b2a475a0ca4aa..b665a33b449b4 100644
 --- a/drivers/gpu/drm/qxl/qxl_release.c
 +++ b/drivers/gpu/drm/qxl/qxl_release.c
 @@ -414,7 +414,7 @@ union qxl_release_info *qxl_release_map(struct qxl_device *qdev,

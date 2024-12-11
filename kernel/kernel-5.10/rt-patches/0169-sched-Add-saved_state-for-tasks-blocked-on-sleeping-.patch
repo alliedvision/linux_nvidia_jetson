@@ -1,7 +1,7 @@
-From ecde0cc8ba89f57adf3604f8419271ff79a5f2bd Mon Sep 17 00:00:00 2001
+From 308a8996640b220d32d3105b63c7497ed3b22d0d Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Sat, 25 Jun 2011 09:21:04 +0200
-Subject: [PATCH 169/322] sched: Add saved_state for tasks blocked on sleeping
+Subject: [PATCH 169/323] sched: Add saved_state for tasks blocked on sleeping
  locks
 X-NVConfidentiality: public
 
@@ -19,7 +19,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  3 files changed, 36 insertions(+), 2 deletions(-)
 
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 2ab01dab5346..928353d919cb 100644
+index d31da4867bb28..73defe42fd23d 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -659,6 +659,8 @@ struct task_struct {
@@ -31,7 +31,7 @@ index 2ab01dab5346..928353d919cb 100644
  
  	/*
  	 * This begins the randomizable portion of task_struct. Only
-@@ -1780,6 +1782,7 @@ extern struct task_struct *find_get_task_by_vpid(pid_t nr);
+@@ -1782,6 +1784,7 @@ extern struct task_struct *find_get_task_by_vpid(pid_t nr);
  
  extern int wake_up_state(struct task_struct *tsk, unsigned int state);
  extern int wake_up_process(struct task_struct *tsk);
@@ -40,7 +40,7 @@ index 2ab01dab5346..928353d919cb 100644
  
  #ifdef CONFIG_SMP
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index cab6c5aeff54..7600e20baf9e 100644
+index 0828239b4f0ff..21c4d91c4c561 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -3305,7 +3305,7 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
@@ -100,7 +100,7 @@ index cab6c5aeff54..7600e20baf9e 100644
  {
  	return try_to_wake_up(p, state, 0);
 diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
-index b1522ab01bd3..e3d870f8df18 100644
+index 4243907629ebb..7ca0673d93bcc 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
 @@ -1754,6 +1754,7 @@ static inline int task_on_rq_migrating(struct task_struct *p)

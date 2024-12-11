@@ -1,7 +1,7 @@
-From 68a72a251415d8f57310aedf45592d37bf3617d0 Mon Sep 17 00:00:00 2001
+From dfe8117a60f83030b7dd18a575ce4a5aa4f9465a Mon Sep 17 00:00:00 2001
 From: Haris Okanovic <haris.okanovic@ni.com>
 Date: Tue, 15 Aug 2017 15:13:08 -0500
-Subject: [PATCH 282/322] tpm_tis: fix stall after iowrite*()s
+Subject: [PATCH 282/323] tpm_tis: fix stall after iowrite*()s
 X-NVConfidentiality: public
 
 ioread8() operations to TPM MMIO addresses can stall the cpu when
@@ -26,7 +26,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 27 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/char/tpm/tpm_tis.c b/drivers/char/tpm/tpm_tis.c
-index 3e1bb28b7efd..c26ed0ce6b34 100644
+index 3e1bb28b7efdf..c26ed0ce6b348 100644
 --- a/drivers/char/tpm/tpm_tis.c
 +++ b/drivers/char/tpm/tpm_tis.c
 @@ -50,6 +50,31 @@ static inline struct tpm_tis_tcg_phy *to_tpm_tis_tcg_phy(struct tpm_tis_data *da

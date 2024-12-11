@@ -1,5 +1,7 @@
-/*
- * Copyright (c) 2016-2023, NVIDIA CORPORATION.  All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/* SPDX-FileCopyrightText: Copyright (c) 2017- 2024 NVIDIA CORPORATION & AFFILIATES.
+ * All rights reserved.
+ *
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -1520,9 +1522,14 @@ int vi_capture_status(
 		// In case of wait_for_completion_timeout we are executing
 		// schedule() after timeout, that fixes this problem.
 		do {
-			ret = wait_for_completion_timeout(
+			ret = wait_for_completion_interruptible_timeout(
 					&capture->capture_resp,
 					msecs_to_jiffies(120000)); // set timeout to 2min
+			if (ret == -ERESTARTSYS) {
+				dev_dbg(chan->dev,
+					"capture status interrupted\n");
+				return -ETIMEDOUT;
+			}					
 		} while (ret == 0); // wait until return value is not timeout
 	} else {
 		ret = wait_for_completion_timeout(

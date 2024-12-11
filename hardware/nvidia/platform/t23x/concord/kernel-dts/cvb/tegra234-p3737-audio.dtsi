@@ -2,7 +2,7 @@
 /*
  * P3737 audio DTSI file.
  *
- * Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  *
  */
 
@@ -23,6 +23,10 @@
 
 		adsp@2993000 {
 			status = "okay";
+		};
+
+		adsp_audio {
+			status = "disabled";
 		};
 
 		ahub {

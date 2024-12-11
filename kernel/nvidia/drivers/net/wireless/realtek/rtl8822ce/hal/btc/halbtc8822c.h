@@ -23,5 +23,5 @@ void halbtc8822c_cfg_coexinfo_hw(struct btc_coexist *btc);
 void halbtc8822c_cfg_wl_tx_power(struct btc_coexist *btc);
 void halbtc8822c_cfg_wl_rx_gain(struct btc_coexist *btc);
 void halbtc8822c_cfg_wlan_act_ips(struct btc_coexist *btc);
-
+void halbtc8822c_cfg_bt_ctrl_act(struct btc_coexist *btc);
 

@@ -55,6 +55,7 @@
 #endif
 #define CONFIG_TX_AMSDU
 
+#define CONFIG_RTW_TX_NPATH_EN /* mutually incompatible with STBC_TX & Beamformer */
 #define CONFIG_RTW_TX_2PATH_EN /* mutually incompatible with STBC_TX & Beamformer */
 
 /*
@@ -117,7 +118,6 @@
 /*#define SUPPORT_HW_RFOFF_DETECTED*/
 /*#define CONFIG_ANTENNA_DIVERSITY*/
 
-#define CONFIG_AP_MODE
 #ifdef CONFIG_AP_MODE
 	/*#define CONFIG_INTERRUPT_BASED_TXBCN*/ /* Tx Beacon when driver BCN_OK ,BCN_ERR interrupt occurs */
 	#if defined(CONFIG_CONCURRENT_MODE) && defined(CONFIG_INTERRUPT_BASED_TXBCN)
@@ -136,7 +136,6 @@
 	/*#define CONFIG_AUTO_AP_MODE*/
 #endif
 
-#define CONFIG_P2P
 #ifdef CONFIG_P2P
 	/* The CONFIG_WFD is for supporting the Wi-Fi display */
 	#define CONFIG_WFD
@@ -177,13 +176,7 @@
 
 #define CONFIG_GLOBAL_UI_PID
 
-/* #define CONFIG_RTW_80211K */
-/* #define CONFIG_RTW_80211R */
-/* #define CONFIG_RTW_WNM */
-/* #define CONFIG_RTW_BTM_ROAM */
-
-#define CONFIG_LAYER2_ROAMING
-#define CONFIG_LAYER2_ROAMING_RESUME
+/*#define CONFIG_RTW_80211K*/
 /*#define CONFIG_ADAPTOR_INFO_CACHING_FILE*/ /* now just applied on 8192cu only, should make it general...*/
 /*#define CONFIG_RESUME_IN_WORKQUEUE*/
 /*#define CONFIG_SET_SCAN_DENY_TIMER*/
@@ -207,11 +200,23 @@
  * Software feature Related Config
  */
 #define RTW_HALMAC		/* Use HALMAC architecture, necessary for 8822B */
+#define RTW_EAPOL_QUEUE
 
 /*
  * Interface  Related Config
  */
 #define CONFIG_USB_CONFIG_OFFLOAD_8822C
+
+/*
+ * Define for using dma_alloc_coherent/dma_free_coherent DMA API for PCIe Tx/Rx
+ */
+/*#define CONFIG_PCIE_DMA_COHERENT*/
+
+#ifdef CONFIG_SECURITY_MEM
+#ifndef CONFIG_PCIE_DMA_COHERENT
+#define CONFIG_PCIE_DMA_COHERENT
+#endif
+#endif
 
 /*
  * HAL  Related Config
@@ -274,7 +279,10 @@
  * Debug Related Config
  */
 #define DBG	1
-
+#define RTW_WNM_DBG 1
+#define RTW_FT_DBG 1
+#define RTW_RSSI_DBG
+#define DBG_EXPIRATION_CHK
 #define CONFIG_DBG_COUNTER
 
 #define DBG_CONFIG_ERROR_DETECT
@@ -322,7 +330,7 @@
 
 /* #define CONFIG_8822CE_INT_MIGRATION */
 
-#define CONFIG_PCI_BCN_POLLING
-
 #define CONFIG_PCI_TX_POLLING
 /*#define CONFIG_PCI_TX_POLLING_V2*/
+
+/* #define CONFIG_64BIT_DMA */

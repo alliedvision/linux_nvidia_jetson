@@ -1,7 +1,7 @@
-From b936d687bf61456e2dc703014edae093c79a6fa9 Mon Sep 17 00:00:00 2001
+From 03511dee0fc56b44922d9524444c147da9bfa8da Mon Sep 17 00:00:00 2001
 From: Steven Rostedt <rostedt@goodmis.org>
 Date: Tue, 14 Jul 2015 14:26:34 +0200
-Subject: [PATCH 161/322] futex: Fix bug on when a requeued RT task times out
+Subject: [PATCH 161/323] futex: Fix bug on when a requeued RT task times out
 X-NVConfidentiality: public
 
 Requeue with timeout causes a bug with PREEMPT_RT.
@@ -53,7 +53,7 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  2 files changed, 31 insertions(+), 1 deletion(-)
 
 diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
-index 2ef5a6eb95da..d8755d5ef227 100644
+index 2ef5a6eb95daa..d8755d5ef2277 100644
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
 @@ -138,7 +138,8 @@ static void fixup_rt_mutex_waiters(struct rt_mutex *lock)
@@ -102,7 +102,7 @@ index 2ef5a6eb95da..d8755d5ef227 100644
  	ret = task_blocks_on_rt_mutex(lock, waiter, task,
  				      RT_MUTEX_FULL_CHAINWALK);
 diff --git a/kernel/locking/rtmutex_common.h b/kernel/locking/rtmutex_common.h
-index 096b16cfb096..37cd6b3bf6f4 100644
+index 096b16cfb096e..37cd6b3bf6f43 100644
 --- a/kernel/locking/rtmutex_common.h
 +++ b/kernel/locking/rtmutex_common.h
 @@ -126,6 +126,7 @@ enum rtmutex_chainwalk {

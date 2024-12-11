@@ -1,7 +1,7 @@
-From 98b904c29f2afd3b839b9203487dffbac8bee3bc Mon Sep 17 00:00:00 2001
+From 5e32c729e2d9636c520963e321f44a53893e3e4e Mon Sep 17 00:00:00 2001
 From: Mike Galbraith <umgwanakikbuti@gmail.com>
 Date: Thu, 31 Mar 2016 04:08:28 +0200
-Subject: [PATCH 281/322] drivers/block/zram: Replace bit spinlocks with
+Subject: [PATCH 281/323] drivers/block/zram: Replace bit spinlocks with
  rtmutex for -rt
 X-NVConfidentiality: public
 
@@ -16,7 +16,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 37 insertions(+)
 
 diff --git a/drivers/block/zram/zram_drv.c b/drivers/block/zram/zram_drv.c
-index 0636df6b67db..1a7523cefbe9 100644
+index 0636df6b67db6..1a7523cefbe9b 100644
 --- a/drivers/block/zram/zram_drv.c
 +++ b/drivers/block/zram/zram_drv.c
 @@ -59,6 +59,40 @@ static void zram_free_page(struct zram *zram, size_t index);
@@ -77,7 +77,7 @@ index 0636df6b67db..1a7523cefbe9 100644
  }
  
 diff --git a/drivers/block/zram/zram_drv.h b/drivers/block/zram/zram_drv.h
-index f2fd46daa760..7e4dd447e1dd 100644
+index f2fd46daa7604..7e4dd447e1ddd 100644
 --- a/drivers/block/zram/zram_drv.h
 +++ b/drivers/block/zram/zram_drv.h
 @@ -63,6 +63,7 @@ struct zram_table_entry {

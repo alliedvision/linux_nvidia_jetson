@@ -1,7 +1,7 @@
-From 2e6377ccbe494734bbade74a4d062dd0fec28e65 Mon Sep 17 00:00:00 2001
+From af1e8ef5270df8fb96099314b98468383739d21e Mon Sep 17 00:00:00 2001
 From: Valentin Schneider <valentin.schneider@arm.com>
 Date: Sun, 22 Nov 2020 20:19:04 +0000
-Subject: [PATCH 070/322] notifier: Make atomic_notifiers use raw_spinlock
+Subject: [PATCH 070/323] notifier: Make atomic_notifiers use raw_spinlock
 X-NVConfidentiality: public
 
 Booting a recent PREEMPT_RT kernel (v5.10-rc3-rt7-rebase) on my arm64 Juno
@@ -57,7 +57,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 9 insertions(+), 9 deletions(-)
 
 diff --git a/include/linux/notifier.h b/include/linux/notifier.h
-index 2fb373a5c1ed..723bc2df6388 100644
+index 2fb373a5c1ede..723bc2df63882 100644
 --- a/include/linux/notifier.h
 +++ b/include/linux/notifier.h
 @@ -58,7 +58,7 @@ struct notifier_block {
@@ -88,7 +88,7 @@ index 2fb373a5c1ed..723bc2df6388 100644
  #define BLOCKING_NOTIFIER_INIT(name) {				\
  		.rwsem = __RWSEM_INITIALIZER((name).rwsem),	\
 diff --git a/kernel/notifier.c b/kernel/notifier.c
-index 1b019cbca594..c20782f07643 100644
+index 1b019cbca594a..c20782f076432 100644
 --- a/kernel/notifier.c
 +++ b/kernel/notifier.c
 @@ -142,9 +142,9 @@ int atomic_notifier_chain_register(struct atomic_notifier_head *nh,

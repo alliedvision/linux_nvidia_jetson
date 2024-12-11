@@ -48,7 +48,7 @@ void _halrf_txgapk_backup_bb_registers_8822c(
 	for (i = 0; i < reg_num; i++) {
 		reg_backup[i] = odm_get_bb_reg(dm, reg[i], MASKDWORD);
 
-		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] Backup BB 0x%x = 0x%x\n",
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TXGAPK] Backup BB 0x%x = 0x%x\n",
 		       reg[i], reg_backup[i]);
 	}
 }
@@ -65,9 +65,31 @@ void _halrf_txgapk_reload_bb_registers_8822c(
 
 	for (i = 0; i < reg_num; i++) {
 		odm_set_bb_reg(dm, reg[i], MASKDWORD, reg_backup[i]);
-		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TSSI] Reload BB 0x%x = 0x%x\n",
+		RF_DBG(dm, DBG_RF_TX_PWR_TRACK, "[TXGAPK] Reload BB 0x%x = 0x%x\n",
 		       reg[i], reg_backup[i]);
 	}
+}
+
+void _halrf_txgapk_tx_pause_8822c(
+	struct dm_struct *dm)
+{
+	u8 reg_rf0_a, reg_rf0_b;
+	u16 count = 0;
+
+	odm_write_1byte(dm, R_0x522, 0xff);
+	odm_set_bb_reg(dm, R_0x1e70, 0x0000000f, 0x2); /*hw tx stop*/
+
+	reg_rf0_a = (u8)odm_get_rf_reg(dm, RF_PATH_A, RF_0x00, 0xF0000);
+	reg_rf0_b = (u8)odm_get_rf_reg(dm, RF_PATH_B, RF_0x00, 0xF0000);
+
+	while (((reg_rf0_a == 2) || (reg_rf0_b == 2)) && count < 2500) {
+		reg_rf0_a = (u8)odm_get_rf_reg(dm, RF_PATH_A, RF_0x00, 0xF0000);
+		reg_rf0_b = (u8)odm_get_rf_reg(dm, RF_PATH_B, RF_0x00, 0xF0000);
+		ODM_delay_us(2);
+		count++;
+	}
+
+	RF_DBG(dm, DBG_RF_DPK, "[TXGAPK] Tx pause!!\n");
 }
 
 void _halrf_txgapk_bb_dpk_8822c(
@@ -291,7 +313,8 @@ void _halrf_txgapk_write_gain_bb_table_8822c(
 		for (path_idx = RF_PATH_A; path_idx < MAX_PATH_NUM_8822C; path_idx++) {
 			odm_set_bb_reg(dm, R_0x1b00, 0x00000006, path_idx);
 
-			if (band_idx == 0 || band_idx == 1)	/*2G*/
+			//if (band_idx == 0 || band_idx == 1)	/*2G*/
+			if (band_idx == 1)
 				odm_set_bb_reg(dm, R_0x1b98, 0x00007000, 0x0);
 			else if (band_idx == 2)	/*5GL*/
 				odm_set_bb_reg(dm, R_0x1b98, 0x00007000, 0x2);
@@ -584,8 +607,8 @@ void _halrf_txgapk_write_tx_gain_8822c(
 	RF_DBG(dm, DBG_RF_TXGAPK, "[TXGAPK] ======>%s\n", __func__);
 
 	if (channel >= 1 && channel <= 14) {
-		tmp = 0x20;	/*2G CCK*/
-		tmp1 = 0x60;	/*2G OFDM*/
+		tmp = 0x20;	/*2G OFDM*/
+		tmp1 = 0x60;	/*2G CCK*/
 		band_idx = 1;
 	} else if (channel >= 36 && channel <= 64) {
 		tmp = 0x200;	/*5G L*/
@@ -602,9 +625,9 @@ void _halrf_txgapk_write_tx_gain_8822c(
 	}
 
 	for (path_idx = RF_PATH_A; path_idx < MAX_PATH_NUM_8822C; path_idx++) {
-		for (i = 0; i < 10; i++) {
+		for (i = 0; i <= 10; i++) {
 			offset_tmp[i] = 0;
-			for (j = i; j < 10; j++) {
+			for (j = i; j <= 10; j++) {
 				if ((((txgapk->txgapk_rf3f_bp[band_idx][j][path_idx] & 0xf00) >> 8) >= 0xc) &&
 					(((txgapk->txgapk_rf3f_bp[band_idx][j][path_idx] & 0xf0) >> 4) >= 0xe))
 					continue;
@@ -637,6 +660,7 @@ void _halrf_txgapk_write_tx_gain_8822c(
 			j++;
 		}
 
+#if 0
 		if (tmp1 == 0x60) {
 			j = 0;
 			for (i = tmp1; i <= (tmp1 + 10); i++) {
@@ -652,7 +676,7 @@ void _halrf_txgapk_write_tx_gain_8822c(
 				j++;
 			}
 		}
-
+#endif
 		odm_set_rf_reg(dm, path_idx, 0xee, 0xfffff, 0x0);
 	}
 }
@@ -693,6 +717,7 @@ void halrf_txgapk_save_all_tx_gain_table_8822c(
 	u32 three_wire[2] = {R_0x180c, R_0x410c}, rf18;
 	u8 ch_num[5] = {1, 1, 36, 100, 149};
 	u8 band_num[5] = {0x0, 0x0, 0x1, 0x3, 0x5};
+	u8 cck[5] = {0x1, 0x0, 0x0, 0x0, 0x0};
 	u8 path_idx, band_idx, gain_idx, rf0_idx;
 	
 	RF_DBG(dm, DBG_RF_TXGAPK, "[TXGAPK] ======>%s\n", __func__);
@@ -711,6 +736,8 @@ void halrf_txgapk_save_all_tx_gain_table_8822c(
 
 			odm_set_rf_reg(dm, path_idx, RF_0x18, 0x000ff, ch_num[band_idx]);
 			odm_set_rf_reg(dm, path_idx, RF_0x18, 0x70000, band_num[band_idx]);
+			odm_set_rf_reg(dm, path_idx, RF_0x1a, 0x00001, cck[band_idx]);
+			odm_set_rf_reg(dm, path_idx, RF_0x1a, 0x10000, cck[band_idx]);
 
 			gain_idx = 0;
 			for (rf0_idx = 1; rf0_idx < 32; rf0_idx = rf0_idx + 3) {
@@ -746,8 +773,8 @@ void halrf_txgapk_reload_tx_gain_8822c(
 
 	for (band_idx = 1; band_idx <= 4; band_idx++) {
 		if (band_idx == 1) {
-			tmp = 0x20;	/*2G CCK*/
-			tmp1 = 0x60;	/*2G OFDM*/
+			tmp = 0x20;	/*2G OFDM*/
+			tmp1 = 0x60;	/*2G CCK*/
 		} else if (band_idx == 2) {
 			tmp = 0x200;	/*5G L*/
 			tmp1 = 0x0;
@@ -774,6 +801,7 @@ void halrf_txgapk_reload_tx_gain_8822c(
 				j++;
 			}
 
+#if 0
 			if (tmp1 == 0x60) {
 				j = 0;
 				for (i = tmp1; i <= (tmp1 + 10); i++) {
@@ -787,7 +815,7 @@ void halrf_txgapk_reload_tx_gain_8822c(
 					j++;
 				}
 			}
-
+#endif
 			odm_set_rf_reg(dm, path_idx, 0xee, 0xfffff, 0x0);
 		}
 	}
@@ -801,6 +829,8 @@ void halrf_txgapk_8822c(
 	struct _halrf_txgapk_info *txgapk = &rf->halrf_txgapk_info;
 	struct dm_rf_calibration_struct *cali_info = &dm->rf_calibrate_info;
 	u8 path_idx;
+	u32 bb_reg_backup[2];
+	u32 bb_reg[2] = {R_0x520, R_0x1e70};
 
 	RF_DBG(dm, DBG_RF_TXGAPK, "[TXGAPK] ======>%s\n", __func__);
 
@@ -828,6 +858,10 @@ void halrf_txgapk_8822c(
 
 	/*_halrf_txgapk_disable_power_trim_8822c(dm);*/
 
+	_halrf_txgapk_backup_bb_registers_8822c(dm, bb_reg, bb_reg_backup, 2);
+
+	_halrf_txgapk_tx_pause_8822c(dm);
+
 	for (path_idx = 0; path_idx < MAX_PATH_NUM_8822C; path_idx++) {
 		_halrf_txgapk_bb_dpk_8822c(dm, path_idx);
 		_halrf_txgapk_afe_dpk_8822c(dm, path_idx);
@@ -838,6 +872,8 @@ void halrf_txgapk_8822c(
 	}
 
 	_halrf_txgapk_write_tx_gain_8822c(dm);
+
+	_halrf_txgapk_reload_bb_registers_8822c(dm, bb_reg, bb_reg_backup, 2);
 
 	/*_halrf_txgapk_enable_power_trim_8822c(dm);*/
 

@@ -26,7 +26,7 @@
 #ifndef __ODM_INTERFACE_H__
 #define __ODM_INTERFACE_H__
 
-#define INTERFACE_VERSION "1.2"
+#define INTERFACE_VERSION "1.3"
 
 #define pdm_set_reg odm_set_bb_reg
 
@@ -48,6 +48,7 @@ enum phydm_h2c_cmd {
 	PHYDM_H2C_MCC			= 0x4f,
 	PHYDM_H2C_RESP_TX_PATH_CTRL	= 0x50,
 	PHYDM_H2C_RESP_TX_ANT_CTRL	= 0x51,
+	PHYDM_H2C_FW_DM_CTRL		= 0x55,
 	ODM_MAX_H2CCMD
 };
 
@@ -179,6 +180,10 @@ void odm_set_rf_reg(struct dm_struct *dm, u8 e_rf_path, u32 reg_addr,
 
 u32 odm_get_rf_reg(struct dm_struct *dm, u8 e_rf_path, u32 reg_addr,
 		   u32 bit_mask);
+
+u16 odm_convert_to_le16(u16 value);
+
+u32 odm_convert_to_le32(u32 value);
 
 /*@
  * Memory Relative Function.
@@ -315,6 +320,9 @@ void phydm_run_in_thread_cmd(struct dm_struct *dm, void (*func)(void *),
 			     void *context);
 u8 phydm_get_tx_rate(struct dm_struct *dm);
 u8 phydm_get_tx_power_dbm(struct dm_struct *dm, u8 rf_path,
+					u8 rate, u8 bandwidth, u8 channel);
+
+s16 phydm_get_tx_power_mdbm(struct dm_struct *dm, u8 rf_path,
 					u8 rate, u8 bandwidth, u8 channel);
 
 u32 phydm_rfe_ctrl_gpio(struct dm_struct *dm, u8 gpio_num);

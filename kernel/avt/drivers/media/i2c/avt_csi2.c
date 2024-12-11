@@ -1359,10 +1359,10 @@ static void set_channel_timeout(struct v4l2_subdev *sd, unsigned long timeout)
 	tch = video_get_drvdata(vdev_vi);
 
 	if (timeout == AVT_TEGRA_TIMEOUT_DISABLED) {
-		tch->timeout = timeout;
+		tch->capture_timeout_ms = timeout;
 	}
 	else
-		tch->timeout = msecs_to_jiffies(timeout);
+		tch->capture_timeout_ms = msecs_to_jiffies(timeout);
 }
 
 static void set_channel_stride_align(struct v4l2_subdev *sd, uint8_t align)

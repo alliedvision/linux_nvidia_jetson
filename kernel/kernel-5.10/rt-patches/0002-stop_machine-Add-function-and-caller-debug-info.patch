@@ -1,7 +1,7 @@
-From c2b873fff1f0114765ab280f8fb75b202b1ce526 Mon Sep 17 00:00:00 2001
+From d123cf0fd15cb12141b6e7935519aecd289fbf12 Mon Sep 17 00:00:00 2001
 From: Peter Zijlstra <peterz@infradead.org>
 Date: Fri, 23 Oct 2020 12:11:59 +0200
-Subject: [PATCH 002/322] stop_machine: Add function and caller debug info
+Subject: [PATCH 002/323] stop_machine: Add function and caller debug info
 X-NVConfidentiality: public
 
 Crashes in stop-machine are hard to connect to the calling code, add a
@@ -16,7 +16,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  3 files changed, 27 insertions(+), 3 deletions(-)
 
 diff --git a/include/linux/stop_machine.h b/include/linux/stop_machine.h
-index 63ea9aff368f..46fb3ebdd16e 100644
+index 63ea9aff368f0..46fb3ebdd16e4 100644
 --- a/include/linux/stop_machine.h
 +++ b/include/linux/stop_machine.h
 @@ -24,6 +24,7 @@ typedef int (*cpu_stop_fn_t)(void *arg);
@@ -46,7 +46,7 @@ index 63ea9aff368f..46fb3ebdd16e 100644
  
  /*
 diff --git a/kernel/stop_machine.c b/kernel/stop_machine.c
-index 890b79cf0e7c..dbf585cf4b9f 100644
+index 890b79cf0e7c3..dbf585cf4b9f8 100644
 --- a/kernel/stop_machine.c
 +++ b/kernel/stop_machine.c
 @@ -42,11 +42,23 @@ struct cpu_stopper {
@@ -120,7 +120,7 @@ index 890b79cf0e7c..dbf585cf4b9f 100644
  			  "cpu_stop: %ps(%p) leaked preempt count\n", fn, arg);
  		goto repeat;
 diff --git a/lib/dump_stack.c b/lib/dump_stack.c
-index a00ee6eedc7c..f5a33b6f773f 100644
+index a00ee6eedc7c3..f5a33b6f773f7 100644
 --- a/lib/dump_stack.c
 +++ b/lib/dump_stack.c
 @@ -12,6 +12,7 @@

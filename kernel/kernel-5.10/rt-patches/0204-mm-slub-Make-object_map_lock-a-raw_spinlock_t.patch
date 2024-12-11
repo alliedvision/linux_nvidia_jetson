@@ -1,7 +1,7 @@
-From fe83a17a849d5e23c1837b7592568c75722d14e4 Mon Sep 17 00:00:00 2001
+From 505415780ad37b065735478e66782a9ce175756f Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Thu, 16 Jul 2020 18:47:50 +0200
-Subject: [PATCH 204/322] mm/slub: Make object_map_lock a raw_spinlock_t
+Subject: [PATCH 204/323] mm/slub: Make object_map_lock a raw_spinlock_t
 X-NVConfidentiality: public
 
 The variable object_map is protected by object_map_lock. The lock is always
@@ -15,7 +15,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/mm/slub.c b/mm/slub.c
-index 57c598dd7454..ac2ddf6a4220 100644
+index 57c598dd7454e..ac2ddf6a42204 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -435,7 +435,7 @@ static inline bool cmpxchg_double_slab(struct kmem_cache *s, struct page *page,

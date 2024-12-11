@@ -1,7 +1,7 @@
-From 1ecd4dd014db527ae34285e8eb0129dec6e54cfa Mon Sep 17 00:00:00 2001
+From b19cd6999ede2ee66f59b1e1851ad247e24414ac Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 7 Aug 2019 18:15:38 +0200
-Subject: [PATCH 256/322] x86: Allow to enable RT
+Subject: [PATCH 256/323] x86: Allow to enable RT
 X-NVConfidentiality: public
 
 Allow to select RT.
@@ -12,7 +12,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 1 insertion(+)
 
 diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index 54e5284a6ae1..c72d66a0e840 100644
+index b0c20c0233aa5..9566d7fe3a0de 100644
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
 @@ -27,6 +27,7 @@ config X86_64

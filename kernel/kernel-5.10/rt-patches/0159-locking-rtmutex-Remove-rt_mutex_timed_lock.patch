@@ -1,7 +1,7 @@
-From 3fef239faf8cd6c335a21275d5a064aade21d372 Mon Sep 17 00:00:00 2001
+From 15b0d50d5fd8f06fd669bffc3c1b3fa42e5ae964 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 7 Oct 2020 12:11:33 +0200
-Subject: [PATCH 159/322] locking/rtmutex: Remove rt_mutex_timed_lock()
+Subject: [PATCH 159/323] locking/rtmutex: Remove rt_mutex_timed_lock()
 X-NVConfidentiality: public
 
 rt_mutex_timed_lock() has no callers since commit
@@ -16,7 +16,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 49 deletions(-)
 
 diff --git a/include/linux/rtmutex.h b/include/linux/rtmutex.h
-index 2dc10b582d4a..243fabc2c85f 100644
+index 2dc10b582d4ae..243fabc2c85f6 100644
 --- a/include/linux/rtmutex.h
 +++ b/include/linux/rtmutex.h
 @@ -99,9 +99,6 @@ extern void rt_mutex_lock(struct rt_mutex *lock);
@@ -30,7 +30,7 @@ index 2dc10b582d4a..243fabc2c85f 100644
  
  extern void rt_mutex_unlock(struct rt_mutex *lock);
 diff --git a/kernel/locking/rtmutex.c b/kernel/locking/rtmutex.c
-index 9aa4d545020a..b5d5c570a8ac 100644
+index 9aa4d545020af..b5d5c570a8acd 100644
 --- a/kernel/locking/rtmutex.c
 +++ b/kernel/locking/rtmutex.c
 @@ -1405,21 +1405,6 @@ rt_mutex_fastlock(struct rt_mutex *lock, int state,

@@ -1,7 +1,7 @@
-From 3184ab7e4b1a61a51f1395b907a5c3d8b49e93a0 Mon Sep 17 00:00:00 2001
+From 32843114d60d2c541af92cfe7ca01f327ae21834 Mon Sep 17 00:00:00 2001
 From: Valentin Schneider <valentin.schneider@arm.com>
 Date: Fri, 13 Nov 2020 11:24:14 +0000
-Subject: [PATCH 023/322] sched/core: Add missing completion for
+Subject: [PATCH 023/323] sched/core: Add missing completion for
  affine_move_task() waiters
 X-NVConfidentiality: public
 
@@ -44,7 +44,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 12 insertions(+), 1 deletion(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index cc3198fdc37a..2e6afad9f0b0 100644
+index 26eeedaa3712f..51ea2f0dd15df 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1941,7 +1941,7 @@ static int migration_cpu_stop(void *data)

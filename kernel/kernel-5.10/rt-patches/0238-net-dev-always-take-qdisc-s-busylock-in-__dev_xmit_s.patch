@@ -1,7 +1,7 @@
-From ae0a57cf410cf3fbe8e4b1f4d12486ae4d410ec4 Mon Sep 17 00:00:00 2001
+From b9e16f03a1b426bc9c00f96d6df3bf1d41abedb1 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Wed, 30 Mar 2016 13:36:29 +0200
-Subject: [PATCH 238/322] net: dev: always take qdisc's busylock in
+Subject: [PATCH 238/323] net: dev: always take qdisc's busylock in
  __dev_xmit_skb()
 X-NVConfidentiality: public
 
@@ -22,10 +22,10 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 4 insertions(+)
 
 diff --git a/net/core/dev.c b/net/core/dev.c
-index d0f41d800c26..33667af204bd 100644
+index a6abc6f010136..e1c7868d8e96c 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -3797,7 +3797,11 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+@@ -3805,7 +3805,11 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
  	 * This permits qdisc->running owner to get the lock more
  	 * often and dequeue packets faster.
  	 */

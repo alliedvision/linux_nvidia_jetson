@@ -1,7 +1,7 @@
-From 79481aff15e4727cc40fe9c7eb02a535325fac38 Mon Sep 17 00:00:00 2001
+From 074b646450f384c6df1a8e6e7d4a6d801416c309 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:31 +0100
-Subject: [PATCH 042/322] mm/highmem: Remove the old kmap_atomic cruft
+Subject: [PATCH 042/323] mm/highmem: Remove the old kmap_atomic cruft
 X-NVConfidentiality: public
 
 All users gone.
@@ -14,7 +14,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  2 files changed, 5 insertions(+), 65 deletions(-)
 
 diff --git a/include/linux/highmem.h b/include/linux/highmem.h
-index a5ce45dceae0..e632774cce87 100644
+index a5ce45dceae0f..e632774cce872 100644
 --- a/include/linux/highmem.h
 +++ b/include/linux/highmem.h
 @@ -86,31 +86,16 @@ static inline void kunmap(struct page *page)
@@ -110,7 +110,7 @@ index a5ce45dceae0..e632774cce87 100644
  /*
   * Prevent people trying to call kunmap_atomic() as if it were kunmap()
 diff --git a/mm/highmem.c b/mm/highmem.c
-index 77677c6844f7..499dfafd36b7 100644
+index 77677c6844f73..499dfafd36b79 100644
 --- a/mm/highmem.c
 +++ b/mm/highmem.c
 @@ -31,12 +31,6 @@

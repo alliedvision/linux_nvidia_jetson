@@ -1,7 +1,7 @@
-From ef7be5f50e67cbcc27ee66f1f203683ebd560804 Mon Sep 17 00:00:00 2001
+From d57a385eea41d80779ecc360697aa0ea5106b2a6 Mon Sep 17 00:00:00 2001
 From: Thomas Gleixner <tglx@linutronix.de>
 Date: Tue, 3 Nov 2020 10:27:48 +0100
-Subject: [PATCH 059/322] drm/i915: Replace io_mapping_map_atomic_wc()
+Subject: [PATCH 059/323] drm/i915: Replace io_mapping_map_atomic_wc()
 X-NVConfidentiality: public
 
 None of these mapping requires the side effect of disabling pagefaults and
@@ -28,7 +28,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  4 files changed, 22 insertions(+), 37 deletions(-)
 
 diff --git a/drivers/gpu/drm/i915/gem/i915_gem_execbuffer.c b/drivers/gpu/drm/i915/gem/i915_gem_execbuffer.c
-index 0c083af5a59d..2abf043d3d9d 100644
+index 0c083af5a59d5..2abf043d3d9d3 100644
 --- a/drivers/gpu/drm/i915/gem/i915_gem_execbuffer.c
 +++ b/drivers/gpu/drm/i915/gem/i915_gem_execbuffer.c
 @@ -1080,7 +1080,7 @@ static void reloc_cache_reset(struct reloc_cache *cache, struct i915_execbuffer
@@ -60,7 +60,7 @@ index 0c083af5a59d..2abf043d3d9d 100644
  	cache->vaddr = (unsigned long)vaddr;
  
 diff --git a/drivers/gpu/drm/i915/i915_gem.c b/drivers/gpu/drm/i915/i915_gem.c
-index 58276694c848..88944c3b1bc8 100644
+index 58276694c848d..88944c3b1bc8a 100644
 --- a/drivers/gpu/drm/i915/i915_gem.c
 +++ b/drivers/gpu/drm/i915/i915_gem.c
 @@ -355,22 +355,15 @@ gtt_user_read(struct io_mapping *mapping,
@@ -122,7 +122,7 @@ index 58276694c848..88944c3b1bc8 100644
  
  /**
 diff --git a/drivers/gpu/drm/i915/selftests/i915_gem.c b/drivers/gpu/drm/i915/selftests/i915_gem.c
-index 412e21604a05..432493183d20 100644
+index 412e21604a050..432493183d209 100644
 --- a/drivers/gpu/drm/i915/selftests/i915_gem.c
 +++ b/drivers/gpu/drm/i915/selftests/i915_gem.c
 @@ -57,12 +57,12 @@ static void trash_stolen(struct drm_i915_private *i915)
@@ -141,7 +141,7 @@ index 412e21604a05..432493183d20 100644
  
  	ggtt->vm.clear_range(&ggtt->vm, slot, PAGE_SIZE);
 diff --git a/drivers/gpu/drm/i915/selftests/i915_gem_gtt.c b/drivers/gpu/drm/i915/selftests/i915_gem_gtt.c
-index 65e28c4cd4ce..ca483285f267 100644
+index 65e28c4cd4ce5..ca483285f267c 100644
 --- a/drivers/gpu/drm/i915/selftests/i915_gem_gtt.c
 +++ b/drivers/gpu/drm/i915/selftests/i915_gem_gtt.c
 @@ -1201,9 +1201,9 @@ static int igt_ggtt_page(void *arg)

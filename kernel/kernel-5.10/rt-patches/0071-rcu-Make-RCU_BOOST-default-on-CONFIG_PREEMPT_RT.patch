@@ -1,7 +1,7 @@
-From 15c188579fe8e3b05d5919c540d973da871d2654 Mon Sep 17 00:00:00 2001
+From c48cfb47cc8eb37abdb251df7ccb8ed0d9c62a01 Mon Sep 17 00:00:00 2001
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Date: Tue, 15 Dec 2020 15:16:45 +0100
-Subject: [PATCH 071/322] rcu: Make RCU_BOOST default on CONFIG_PREEMPT_RT
+Subject: [PATCH 071/323] rcu: Make RCU_BOOST default on CONFIG_PREEMPT_RT
 X-NVConfidentiality: public
 
 On PREEMPT_RT kernels, RCU callbacks are deferred to the `rcuc' kthread.
@@ -22,7 +22,7 @@ Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/kernel/rcu/Kconfig b/kernel/rcu/Kconfig
-index cd6e11403f1b..0c71197857f6 100644
+index cd6e11403f1b1..0c71197857f68 100644
 --- a/kernel/rcu/Kconfig
 +++ b/kernel/rcu/Kconfig
 @@ -189,8 +189,8 @@ config RCU_FAST_NO_HZ

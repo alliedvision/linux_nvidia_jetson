@@ -1,7 +1,7 @@
-From 994a8b7d66692083258f45cd3a9bbfd95884062e Mon Sep 17 00:00:00 2001
+From 8a63181e3195b16e74a49fcea989cbc4ae2cbdc4 Mon Sep 17 00:00:00 2001
 From: Valentin Schneider <valentin.schneider@arm.com>
 Date: Tue, 8 Jun 2021 00:37:36 -0400
-Subject: [PATCH 295/322] sched: Don't defer CPU pick to migration_cpu_stop()
+Subject: [PATCH 295/323] sched: Don't defer CPU pick to migration_cpu_stop()
 X-NVConfidentiality: public
 
 commit 475ea6c60279e9f2ddf7e4cf2648cd8ae0608361 upstream.
@@ -37,7 +37,7 @@ Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
  1 file changed, 12 insertions(+), 8 deletions(-)
 
 diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index da5bd3e710e1..c15d5aa4aeee 100644
+index 5b3322f0dc583..dfc9a6ecd655b 100644
 --- a/kernel/sched/core.c
 +++ b/kernel/sched/core.c
 @@ -1958,7 +1958,6 @@ static int migration_cpu_stop(void *data)
