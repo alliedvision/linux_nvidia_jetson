@@ -1660,6 +1660,7 @@ long avt_csi2_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 			}
 		}
 
+		kfree(i2c_reg_buf);
 		break;
 
 	case VIDIOC_G_I2C_CLOCK_FREQ:
